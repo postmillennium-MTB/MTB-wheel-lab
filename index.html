@@ -1,0 +1,1351 @@
+import { useState, useMemo, useRef, useEffect } from "react";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid,
+  ReferenceLine, ReferenceArea, ReferenceDot, ResponsiveContainer, Tooltip,
+  BarChart, Bar, Cell,
+} from "recharts";
+
+/* ════════════════════════════════════════════════════════════════════════════
+   WHEEL STRENGTH LAB
+   Architecture: 3 tabs (COMPARE / SIMULATION / DEEP DIVE)
+   Persistent control bar above tabs · collapsible sections · 4 color schemes
+   Post Millennium Renaissance MTB
+   ════════════════════════════════════════════════════════════════════════════ */
+
+// ─── color schemes (4 full-identity palettes) ────────────────────────────────
+// Each scheme drives the ENTIRE lab: background tones, accent (toggles/sliders/
+// sections/“Holds”), tier colors (ok/warn/fail), wheel colors, capacity lines.
+// h148/h157 = wheel colors · cap148/cap157 = capacity-line colors.
+const SCHEMES = {
+  // "No Quarter" — hard rock: warm charcoal base, gold accent, crimson danger
+  c1: {
+    name: "No Quarter",
+    bg: "#1A1614", surf: "#241E1B", surfl: "#2E2723", bdr: "#473C35",
+    txt: "#F0E8E2", muted: "#A8978C", dim: "#5A4D44",
+    acc: "#C9A227", ok: "#C9A227", warn: "#E08A2B", fail: "#D6452B",
+    h148: "#C9A227", h157: "#D6452B", cap148: "#D6452B", cap157: "#FF6B3D", impact: "#E8C24A",
+  },
+  // "Space Force" — cold cosmic: deep blue-gray base, cyan accent, violet/white
+  c2: {
+    name: "Space Force",
+    bg: "#141826", surf: "#1C2236", surfl: "#252C44", bdr: "#3A445E",
+    txt: "#E6ECFF", muted: "#8A96B8", dim: "#4A5578",
+    acc: "#22D3EE", ok: "#22D3EE", warn: "#A78BFA", fail: "#F472B6",
+    h148: "#8B5CF6", h157: "#22D3EE", cap148: "#A78BFA", cap157: "#F0F9FF", impact: "#38BDF8",
+  },
+  // "Roly-Poly" — warm playful: LIGHT grey base, teal accent, candy danger
+  c3: {
+    name: "Roly-Poly",
+    bg: "#E8E6EA", surf: "#F3F1F5", surfl: "#FAF8FC", bdr: "#C9C3CF",
+    txt: "#2A2230", muted: "#675D72", dim: "#A89EB2",
+    acc: "#0C9488", ok: "#0C9488", warn: "#B45309", fail: "#DC2626",
+    h148: "#DB2777", h157: "#0C9488", cap148: "#B45309", cap157: "#DC2626", impact: "#DB2777",
+  },
+  // "Paperboy" — 8-bit arcade: slate-blue base, vivid green accent, NES red
+  c4: {
+    name: "Paperboy",
+    bg: "#1C2433", surf: "#26303F", surfl: "#303B4D", bdr: "#445063",
+    txt: "#EAF0F7", muted: "#90A0B5", dim: "#4E5C72",
+    acc: "#22C55E", ok: "#22C55E", warn: "#FACC15", fail: "#EF4444",
+    h148: "#3B82F6", h157: "#F97316", cap148: "#22C55E", cap157: "#EF4444", impact: "#60A5FA",
+  },
+};
+const SCHEME_ORDER = ["c1", "c2", "c3", "c4"];
+
+// Active theme. BASE is reassigned from the selected scheme at the top of each
+// App render, so module-level components (Section, Seg, charts…) read live colors.
+let BASE = { ...SCHEMES.c1 };
+
+// ─── base kgf strength (28 spokes, 29", 120 kgf DS tension) ──────────────────
+// Model: Σ T_i × sin(α_i), DS + NDS, scaled by an empirical engagement factor
+// calibrated so 148mm = 36 kgf (real-world lateral failure ≈ 35–45 kgf).
+const BASE_157 = 42;
+const BASE_148 = 36;
+
+// ─── SVG geometry ─────────────────────────────────────────────────────────────
+const SW = 280, SH = 188, CX = SW / 2;
+const HY = 150, RT = 16, RR = HY - RT;
+
+// DS_mm / NDS_mm = flange offset from wheel centerline → flange.
+// flangeR (DS) + flangeL (NDS) = total flange spread.
+const HUB_GEO = {
+  "148": {
+    label: "148mm Boost", tag: "Trail / XC / Enduro",
+    DS_px: 72, NDS_px: 39, flangeR: 37, flangeL: 20,
+    DS_angle: "7.3°", NDS_angle: "4.0°",
+    metrics: { "Lateral Stiffness": 75, "Bracing Balance": 60, "Tension Balance": 70, "Torsional Stiffness": 88 },
+  },
+  "157": {
+    label: "157mm Super Boost", tag: "Enduro / DH / Aggressive",
+    DS_px: 81, NDS_px: 49, flangeR: 41.5, flangeL: 24.5,
+    DS_angle: "8.2°", NDS_angle: "4.8°",
+    metrics: { "Lateral Stiffness": 100, "Bracing Balance": 83, "Tension Balance": 83, "Torsional Stiffness": 100 },
+  },
+};
+
+const METRIC_LIST = [
+  { key: "Lateral Stiffness",   note: "side-flex resistance" },
+  { key: "Bracing Balance",     note: "DS vs NDS angle symmetry" },
+  { key: "Tension Balance",     note: "NDS/DS spoke tension ratio" },
+  { key: "Torsional Stiffness", note: "brake/pedal torque resistance" },
+];
+
+// ─── deterministic LCG ───────────────────────────────────────────────────────
+function lcg(seed) {
+  let s = seed >>> 0;
+  return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
+}
+
+// ─── fractional Brownian motion (fBm) ────────────────────────────────────────
+// Accumulate a seeded random walk, layered at 3 octaves (slow undulation + fine
+// chatter), normalized to ~[-1, 1]. This replaces the old summed-sine baseline
+// with organic trail texture. Deterministic per seed.
+function fbm(seed, N, octaves = 3) {
+  const out = new Array(N).fill(0);
+  for (let o = 0; o < octaves; o++) {
+    const rand = lcg(seed + o * 1013);
+    const step = Math.pow(2, o);          // higher octave = finer/faster
+    const amp  = Math.pow(0.55, o);       // higher octave = smaller amplitude
+    let walk = 0;
+    const walkArr = new Array(N);
+    for (let i = 0; i < N; i++) {
+      walk += (rand() - 0.5) * 0.5;       // random step
+      walk *= 0.96;                        // gentle mean-reversion (no runaway drift)
+      walkArr[i] = walk;
+    }
+    // interpolate the walk at this octave's frequency
+    for (let i = 0; i < N; i++) {
+      const idx = (i * step) % N;
+      out[i] += walkArr[Math.floor(idx)] * amp;
+    }
+  }
+  // normalize to ~[-1,1]
+  const mx = Math.max(...out.map(Math.abs)) || 1;
+  return out.map(v => v / mx);
+}
+
+// ─── ride spike definitions (terrain — independent of chaos/weight) ──────────
+const RIDE_SPEC = {
+  XC:     { base: 8,  noise: 5,  seed: 42,  spikes: [{ t: 55, peak: 24, w: 4 }, { t: 135, peak: 22, w: 3 }, { t: 200, peak: 26, w: 4 }] },
+  Trail:  { base: 11, noise: 7,  seed: 137, spikes: [{ t: 45, peak: 29, w: 4 }, { t: 93, peak: 32, w: 4 }, { t: 148, peak: 38, w: 5 }, { t: 196, peak: 33, w: 4 }, { t: 246, peak: 37, w: 5 }] },
+  Enduro: { base: 15, noise: 9,  seed: 256, spikes: [{ t: 30, peak: 32, w: 4 }, { t: 76, peak: 37, w: 5 }, { t: 112, peak: 40, w: 5 }, { t: 158, peak: 37, w: 4 }, { t: 196, peak: 41, w: 6 }, { t: 242, peak: 37, w: 5 }, { t: 268, peak: 34, w: 3 }] },
+  DH:     { base: 20, noise: 10, seed: 999, spikes: [{ t: 28, peak: 38, w: 5 }, { t: 62, peak: 41, w: 5 }, { t: 92, peak: 37, w: 4 }, { t: 124, peak: 44, w: 5 }, { t: 155, peak: 39, w: 4 }, { t: 184, peak: 45, w: 5 }, { t: 213, peak: 38, w: 5 }, { t: 247, peak: 41, w: 5 }, { t: 270, peak: 38, w: 4 }] },
+};
+
+// Baseline rider+bike used for spike calibration. Heavier scales loads up.
+const REF_WEIGHT_KG = 82;
+
+// ─── ride profile generator ───────────────────────────────────────────────────
+// chaos 1–5 scales fBm baseline jitter only (spikes stay tied to terrain).
+// weightKg scales the whole profile (heavier rider+bike = bigger loads).
+// runSeed re-rolls the fBm so each Simulate press differs (roll & lock).
+function makeProfile(rideKey, { chaos = 3, weightKg = REF_WEIGHT_KG, runSeed = 0 } = {}) {
+  const spec = RIDE_SPEC[rideKey];
+  const N = 280;
+  const wMult = Math.pow(weightKg / REF_WEIGHT_KG, 0.85); // sub-linear weight scaling
+  // chaos 1→5 maps to fBm amplitude as a fraction of the ride's noise band
+  const chaosAmp = spec.noise * (0.15 + chaos * 0.17);    // c1≈0.32·noise … c5≈1.0·noise
+  const texture = fbm(spec.seed + runSeed * 7919, N, 3);
+
+  const v = new Array(N);
+  for (let i = 0; i < N; i++) {
+    v[i] = Math.max(2, spec.base + texture[i] * chaosAmp);
+  }
+  spec.spikes.forEach(({ t, peak, w = 5 }) => {
+    for (let j = -w; j <= w; j++) {
+      const idx = t + j;
+      if (idx < 0 || idx >= N) continue;
+      const blend = Math.pow(1 - Math.abs(j) / (w + 1), 1.8);
+      const nv = v[idx] + (peak - v[idx]) * blend;
+      if (nv > v[idx]) v[idx] = nv;
+    }
+  });
+  return v.map((load, t) => ({ t, load: +Math.min(90, Math.max(0, load * wMult)).toFixed(1) }));
+}
+
+const RIDE_META = {
+  XC:     { label: "XC / Gravel", desc: "Smooth surfaces, minimal tech" },
+  Trail:  { label: "Trail",       desc: "Mixed singletrack with rocks and roots" },
+  Enduro: { label: "Enduro",      desc: "Technical descents, chunky terrain" },
+  DH:     { label: "Downhill",    desc: "Extreme terrain, jumps, high-speed impacts" },
+};
+
+function countEvents(data, threshold) {
+  let n = 0, inEvt = false;
+  for (const d of data) {
+    if (d.load > threshold && !inEvt) { n++; inEvt = true; }
+    else if (d.load <= threshold) inEvt = false;
+  }
+  return n;
+}
+
+// ─── slow-mo single-impact scenarios ──────────────────────────────────────────
+// Each scenario = a peak lateral force (at reference weight) + an impulse shape.
+// Force scales with rider+bike weight. We render the rim's lateral deflection
+// over time: elastic spring-back if peak < strength, permanent yield if over.
+const IMPACT_SCENARIOS = {
+  rock:   { label: "Rock strike",   refPeak: 33, shape: "sharp",  desc: "Sudden edge hit — sharp, narrow spike" },
+  huck:   { label: "Huck to flat",  refPeak: 41, shape: "broad",  desc: "Flat landing off a drop — big sustained load" },
+  garden: { label: "Rock garden",   refPeak: 36, shape: "repeat", desc: "Rapid repeated medium hits" },
+  cased:  { label: "Cased a double", refPeak: 50, shape: "slam",  desc: "Came up short — hard rim slam" },
+};
+
+// Build the lateral-force-over-time trace for a scenario (in kgf).
+function impactForceTrace(scenario, weightKg) {
+  const N = 120;
+  const wMult = Math.pow(weightKg / REF_WEIGHT_KG, 0.85);
+  const peak = scenario.refPeak * wMult;
+  const f = new Array(N).fill(0);
+  if (scenario.shape === "sharp") {
+    for (let i = 0; i < N; i++) {
+      const c = 30; const d = i - c;
+      f[i] = peak * Math.exp(-(d * d) / 40);
+    }
+  } else if (scenario.shape === "broad") {
+    for (let i = 0; i < N; i++) {
+      const c = 45; const d = i - c;
+      f[i] = peak * Math.exp(-(d * d) / 320);
+    }
+  } else if (scenario.shape === "repeat") {
+    const centers = [22, 45, 68, 91];
+    for (let i = 0; i < N; i++) {
+      let val = 0;
+      centers.forEach((c, k) => { const d = i - c; val = Math.max(val, peak * (1 - k * 0.08) * Math.exp(-(d * d) / 28)); });
+      f[i] = val;
+    }
+  } else { // slam
+    for (let i = 0; i < N; i++) {
+      const c = 28;
+      if (i < c) f[i] = peak * Math.exp(-((i - c) * (i - c)) / 24);
+      else f[i] = peak * Math.exp(-((i - c)) / 18); // fast rise, slower fall
+    }
+  }
+  return f.map((force, t) => ({ t, force: +force.toFixed(1) }));
+}
+
+// Convert force trace → rim lateral deflection trace, given wheel strength.
+// Elastic: deflection ∝ force. Past strength: plastic offset accumulates
+// (permanent set) so the rim does NOT fully return — that's the "fail".
+function deflectionTrace(forceTrace, capKgf, stiffnessIndex) {
+  const compliance = 0.020 * (100 / stiffnessIndex);
+  let plastic = 0;          // accumulated permanent deformation (mm)
+  let failed = false;
+  const out = forceTrace.map(({ t, force }) => {
+    let d;
+    if (force <= capKgf) {
+      d = force * compliance + plastic;
+    } else {
+      const over = force - capKgf;
+      const extra = over * compliance * (1 + over * 0.35);
+      // a fraction of the overload becomes permanent
+      plastic += over * compliance * 0.18;
+      failed = true;
+      d = capKgf * compliance + extra + plastic;
+    }
+    return { t, deflection: +d.toFixed(3), force };
+  });
+  return { trace: out, plastic: +plastic.toFixed(2), failed };
+}
+
+// Classify impact outcome into a 3-tier result based on permanent set (mm).
+//   Holds  → sprang back, no permanent deformation
+//   Bends  → minor permanent set, wheel out of true but rideable
+//   Taco'd → major permanent set, wheel folded (walk home)
+function impactTier(plastic) {
+  if (plastic <= 0)     return { word: "Holds",   tone: "ok",   note: "sprang back" };
+  if (plastic < 0.5)    return { word: "Bends",   tone: "warn", note: `${plastic}mm out of true` };
+  return                       { word: "Taco'd",  tone: "fail", note: `${plastic}mm — folded` };
+}
+
+/* ── DEEP DIVE data generators ──────────────────────────────────────────────
+   All derive from the same kgf strength numbers used elsewhere, so the three
+   tabs stay internally consistent. */
+
+// Deflection curve: lateral force (kgf) → rim sideways movement (mm).
+// Linear (elastic) region with slope = 1/stiffness, then a knee at the
+// strength threshold where it goes non-linear (yield) and runs away.
+// Stiffer/stronger wheel = shallower slope + later knee.
+function deflectionCurve(capKgf, stiffnessIndex) {
+  // stiffnessIndex ~75–100 → elastic compliance (mm per kgf). Higher = stiffer = less mm/kgf.
+  const compliance = 0.020 * (100 / stiffnessIndex); // mm per kgf in elastic zone
+  const pts = [];
+  const fMax = capKgf * 1.35;
+  for (let f = 0; f <= fMax; f += 1) {
+    let d;
+    if (f <= capKgf) {
+      d = f * compliance;                       // elastic
+    } else {
+      const over = f - capKgf;
+      d = capKgf * compliance + over * compliance * (1 + over * 0.35); // yield runaway
+    }
+    pts.push({ f: +f.toFixed(0), d: +d.toFixed(3) });
+  }
+  return pts;
+}
+
+// Spoke tension histogram: tension at each spoke going around the wheel.
+// DS and NDS alternate; the GAP between the two bands is the asymmetry.
+// flangeL/flangeR drive the NDS/DS tension ratio (closer = more balanced).
+function tensionHistogram(geo, baseTension, spokeCount = 32) {
+  const ratio = geo.flangeL / geo.flangeR;       // NDS gets less tension when flange is closer in
+  const dsT  = baseTension;
+  const ndsT = Math.round(baseTension * ratio);
+  const n = spokeCount;                          // all spokes (28 / 32 / 36)
+  const rows = [];
+  for (let i = 0; i < n; i++) {
+    const isDS = i % 2 === 0;
+    // tiny natural variation so bars aren't dead-flat
+    const jitter = ((i * 7) % 5 - 2) * 0.6;
+    rows.push({
+      spoke: i + 1,
+      tension: Math.round((isDS ? dsT : ndsT) + jitter),
+      side: isDS ? "DS" : "NDS",
+    });
+  }
+  return { rows, dsT, ndsT, ratio: Math.round(ratio * 100) };
+}
+
+// S-N fatigue curve: stress amplitude vs cycles-to-failure (log scale).
+// Higher-strength wheel sits higher → same load = more cycles before failure.
+// Illustrative trend, not a spec.
+function fatigueCurve(capKgf) {
+  // endurance-ish: at low stress, near-infinite life; steep drop near capacity.
+  const pts = [];
+  for (let pct = 40; pct <= 130; pct += 5) {
+    const stress = (pct / 100) * capKgf;
+    // Basquin-style: N ∝ (S)^-k ; scaled so ~capacity → ~1e3 cycles
+    const k = 5.5;
+    const N = Math.pow(capKgf / stress, k) * 1500;
+    pts.push({ stress: +stress.toFixed(0), cycles: Math.max(1, Math.round(N)) });
+  }
+  return pts;
+}
+
+// ─── redesigned hub cross-section SVG ─────────────────────────────────────────
+// CHANGES vs prior: no "HUB" box blocking the dimension area. Center is a small
+// bearing glyph. Flange-width dimensioning moved BELOW the axle as a clean
+// engineering dimension line (centerline → each flange, arrowheads, mm value in
+// the gap). Spoke triangle + bracing angles stay up top, uncluttered.
+function HubDiagram({ geo, capKgf, color }) {
+  const DSx  = CX + geo.DS_px;
+  const NDSx = CX - geo.NDS_px;
+  const triCX = (DSx + CX + NDSx) / 3;
+  const triCY = (HY + RT + HY) / 3;
+
+  const arcR = 18;
+  const dsT  = Math.atan2(geo.DS_px, RR);
+  const ndsT = Math.atan2(geo.NDS_px, RR);
+  const dsEx  = DSx  - arcR * Math.sin(dsT);
+  const dsEy  = HY   - arcR * Math.cos(dsT);
+  const ndsEx = NDSx + arcR * Math.sin(ndsT);
+  const ndsEy = HY   - arcR * Math.cos(ndsT);
+
+  const secA  = (55 * Math.PI) / 180;
+  const secX  = CX + RR * Math.sin(secA);
+  const secY  = HY - RR * Math.cos(secA);
+
+  // dimension line geometry (below axle)
+  const dimY = HY + 26;
+  const tick = 4;
+
+  return (
+    <svg viewBox={`0 0 ${SW} ${SH}`} style={{ width: "100%", display: "block" }}>
+      {/* rim circle */}
+      <circle cx={CX} cy={HY} r={RR} fill="none" stroke={BASE.bdr} strokeWidth="2.5" />
+      {/* axle */}
+      <line x1={8} y1={HY} x2={SW - 8} y2={HY} stroke={BASE.dim} strokeWidth="2.5" strokeLinecap="round" />
+      {/* secondary context spokes */}
+      <line x1={DSx}  y1={HY} x2={secX}      y2={secY} stroke={color} strokeWidth="1.2" opacity="0.16" />
+      <line x1={NDSx} y1={HY} x2={SW - secX} y2={secY} stroke={color} strokeWidth="1.2" strokeDasharray="4,3" opacity="0.12" />
+
+      {/* lateral strength zone (filled triangle) */}
+      <path d={`M ${DSx} ${HY} L ${CX} ${RT} L ${NDSx} ${HY} Z`} fill={color} opacity="0.13" />
+      <path d={`M ${DSx} ${HY} L ${CX} ${RT} L ${NDSx} ${HY} Z`} fill="none" stroke={color} strokeWidth="0.6" opacity="0.25" />
+
+      {/* strength score inside triangle */}
+      <text x={triCX} y={triCY - 8} textAnchor="middle" fill={color}
+            fontSize="7.5" fontFamily="Space Grotesk, system-ui" fontWeight="600" opacity="0.85" letterSpacing="0.05em">LATERAL STRENGTH</text>
+      <text x={triCX} y={triCY + 15} textAnchor="middle" fill={color}
+            fontSize="22" fontFamily="Space Mono, monospace" fontWeight="700">{capKgf}</text>
+      <text x={triCX} y={triCY + 28} textAnchor="middle" fill={color}
+            fontSize="8" fontFamily="Space Mono, monospace" opacity="0.55">kgf</text>
+
+      {/* lateral force arrows at rim top */}
+      <line x1={CX - 16} y1={RT} x2={CX + 16} y2={RT} stroke={BASE.muted} strokeWidth="1" opacity="0.4" />
+      <polyline points={`${CX+11},${RT-3} ${CX+16},${RT} ${CX+11},${RT+3}`} fill="none" stroke={BASE.muted} strokeWidth="1" opacity="0.4" />
+      <polyline points={`${CX-11},${RT-3} ${CX-16},${RT} ${CX-11},${RT+3}`} fill="none" stroke={BASE.muted} strokeWidth="1" opacity="0.4" />
+
+      {/* primary spokes */}
+      <line x1={NDSx} y1={HY} x2={CX} y2={RT} stroke={color} strokeWidth="2" strokeDasharray="5,3.5" opacity="0.6" />
+      <line x1={DSx}  y1={HY} x2={CX} y2={RT} stroke={color} strokeWidth="2.4" />
+
+      {/* bracing angle arcs */}
+      <path d={`M ${DSx}  ${HY-arcR} A ${arcR} ${arcR} 0 0 0 ${dsEx}  ${dsEy}`} fill="none" stroke={color} strokeWidth="1.5" />
+      <path d={`M ${NDSx} ${HY-arcR} A ${arcR} ${arcR} 0 0 1 ${ndsEx} ${ndsEy}`} fill="none" stroke={color} strokeWidth="1.5" opacity="0.6" />
+      <text x={DSx-1} y={HY-arcR-6} textAnchor="middle" fill={color} fontSize="10" fontFamily="Space Mono, monospace" fontWeight="700">{geo.DS_angle}</text>
+      <text x={NDSx}  y={HY-arcR-6} textAnchor="middle" fill={color} fontSize="10" fontFamily="Space Mono, monospace" fontWeight="700" opacity="0.65">{geo.NDS_angle}</text>
+
+      {/* ── center: small bearing glyph (replaces the old HUB box) ── */}
+      <circle cx={CX} cy={HY} r={6} fill={BASE.surf} stroke={color} strokeWidth="1.5" />
+      <circle cx={CX} cy={HY} r={2} fill={color} opacity="0.6" />
+
+      {/* flanges */}
+      <circle cx={DSx}  cy={HY} r={5} fill={color} />
+      <circle cx={DSx}  cy={HY} r={2} fill={BASE.bg} />
+      <circle cx={NDSx} cy={HY} r={5} fill={color} opacity="0.6" />
+      <circle cx={NDSx} cy={HY} r={2} fill={BASE.bg} />
+
+      {/* rim contact */}
+      <circle cx={CX} cy={RT} r={3.5} fill={BASE.dim} />
+
+      {/* ── flange-width dimension line (below axle, unobstructed) ── */}
+      {/* left segment: centerline → NDS flange */}
+      <line x1={CX}   y1={dimY} x2={NDSx} y2={dimY} stroke={color} strokeWidth="1" opacity="0.55" />
+      <line x1={CX}   y1={dimY-tick} x2={CX}   y2={dimY+tick} stroke={color} strokeWidth="1" opacity="0.55" />
+      <line x1={NDSx} y1={dimY-tick} x2={NDSx} y2={dimY+tick} stroke={color} strokeWidth="1" opacity="0.55" />
+      <text x={(CX+NDSx)/2} y={dimY-5} textAnchor="middle" fill={color} fontSize="8.5" fontFamily="Space Mono, monospace" opacity="0.85">{geo.flangeL}mm</text>
+      {/* right segment: centerline → DS flange */}
+      <line x1={CX}  y1={dimY} x2={DSx} y2={dimY} stroke={color} strokeWidth="1" opacity="0.85" />
+      <line x1={DSx} y1={dimY-tick} x2={DSx} y2={dimY+tick} stroke={color} strokeWidth="1" opacity="0.85" />
+      <text x={(CX+DSx)/2} y={dimY-5} textAnchor="middle" fill={color} fontSize="8.5" fontFamily="Space Mono, monospace">{geo.flangeR}mm</text>
+
+      {/* side labels */}
+      <text x={NDSx} y={dimY+14} textAnchor="middle" fill={BASE.muted} fontSize="8">NDS (L)</text>
+      <text x={DSx}  y={dimY+14} textAnchor="middle" fill={BASE.muted} fontSize="8">DS (R)</text>
+    </svg>
+  );
+}
+
+// ─── collapsible section wrapper ──────────────────────────────────────────────
+function Section({ title, subtitle, children, defaultOpen = true, openState, onToggle }) {
+  // controlled if openState/onToggle provided, else internal
+  const [internalOpen, setInternalOpen] = useState(defaultOpen);
+  const open = openState !== undefined ? openState : internalOpen;
+  const toggle = onToggle || (() => setInternalOpen(o => !o));
+  return (
+    <div style={{ background: BASE.surf, border: `1px solid ${BASE.bdr}`, borderRadius: 8, marginBottom: 12, overflow: "hidden" }}>
+      <button onClick={toggle} style={{
+        width: "100%", display: "flex", alignItems: "center", gap: 10,
+        padding: "11px 16px", background: "transparent", border: "none",
+        cursor: "pointer", textAlign: "left",
+      }}>
+        <span style={{
+          color: BASE.muted, fontSize: 12, transition: "transform 0.18s",
+          transform: open ? "rotate(90deg)" : "rotate(0deg)", display: "inline-block",
+        }}>▶</span>
+        <span style={{ fontFamily: "Space Grotesk, system-ui", fontWeight: 600, fontSize: 12, color: BASE.txt, letterSpacing: "0.04em" }}>
+          {title}
+        </span>
+        {subtitle && <span style={{ fontSize: 10, color: BASE.muted, marginLeft: "auto" }}>{subtitle}</span>}
+      </button>
+      {open && <div style={{ padding: "0 16px 16px" }}>{children}</div>}
+    </div>
+  );
+}
+
+// ─── chart tooltip ────────────────────────────────────────────────────────────
+function ImpactTooltip({ active, payload, cap148, cap157, S }) {
+  if (!active || !payload?.length || payload[0].value == null) return null;
+  const load = payload[0].value;
+  const s = load > cap157 ? { text: `⚠ Exceeds both wheels (>${cap157} kgf)`, c: S.cap157 }
+           : load > cap148 ? { text: `⚠ Exceeds 148mm (>${cap148} kgf)`,       c: S.cap148 }
+           :                  { text: "✓ Both wheels safe",                      c: BASE.acc  };
+  return (
+    <div style={{ background: BASE.surf, border: `1px solid ${BASE.bdr}`, borderRadius: 6, padding: "8px 12px" }}>
+      <div style={{ fontSize: 16, fontWeight: 700, color: BASE.txt, fontFamily: "Space Mono, monospace" }}>
+        {load} <span style={{ fontSize: 10, color: BASE.muted }}>kgf</span>
+      </div>
+      <div style={{ fontSize: 10, color: s.c, marginTop: 3 }}>{s.text}</div>
+    </div>
+  );
+}
+
+// ─── metric bar ───────────────────────────────────────────────────────────────
+function MetricRow({ label, note, v148, v157, S }) {
+  const delta = Math.round(((v157 - v148) / v148) * 100);
+  const isTop = label === "Lateral Stiffness";
+  const h = isTop ? 10 : 7, fs = isTop ? 11 : 9;
+  return (
+    <div style={{ marginBottom: 13 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+        <div>
+          <span style={{ fontSize: isTop ? 12 : 11, color: BASE.txt, fontWeight: isTop ? 600 : 400 }}>{label} </span>
+          <span style={{ fontSize: 9, color: BASE.muted }}>({note})</span>
+        </div>
+        <span style={{ fontSize: 10, color: BASE.acc, fontFamily: "Space Mono, monospace", fontWeight: isTop ? 700 : 400 }}>+{delta}%</span>
+      </div>
+      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ height: h, background: BASE.bdr, borderRadius: 3, overflow: "hidden" }}>
+            <div style={{ width: `${v148}%`, height: "100%", background: S.h148 }} />
+          </div>
+          <div style={{ textAlign: "center", marginTop: 3, fontSize: fs, color: S.h148, fontFamily: "Space Mono, monospace", fontWeight: isTop ? 700 : 400 }}>{v148}</div>
+        </div>
+        <span style={{ width: 14, textAlign: "center", fontSize: 9, color: BASE.muted }}>vs</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ height: h, background: BASE.bdr, borderRadius: 3, overflow: "hidden" }}>
+            <div style={{ width: `${v157}%`, height: "100%", background: S.h157 }} />
+          </div>
+          <div style={{ textAlign: "center", marginTop: 3, fontSize: fs, color: S.h157, fontFamily: "Space Mono, monospace", fontWeight: isTop ? 700 : 400 }}>{v157}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── small toggle (segmented) ─────────────────────────────────────────────────
+function Seg({ label, opts, val, set, activeColor }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <span style={{ fontSize: 10, color: BASE.muted }}>{label}</span>
+      <div style={{ display: "flex", border: `1px solid ${BASE.bdr}`, borderRadius: 5, overflow: "hidden" }}>
+        {opts.map((o, i) => (
+          <button key={o} onClick={() => set(o)} style={{
+            padding: "4px 9px", border: "none", cursor: "pointer",
+            borderLeft: i ? `1px solid ${BASE.bdr}` : "none",
+            background: val === o ? (activeColor || BASE.acc) : BASE.surfl,
+            color: val === o ? BASE.bg : BASE.muted,
+            fontSize: 10, fontFamily: "Space Mono, monospace", fontWeight: val === o ? 700 : 400,
+          }}>{o}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── slider lever ─────────────────────────────────────────────────────────────
+function Slider({ label, value, min, max, step, unit, onChange, color }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 140, flex: 1 }}>
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <span style={{ fontSize: 10, color: BASE.muted }}>{label}</span>
+        <span style={{ fontSize: 10, color: color || BASE.txt, fontFamily: "Space Mono, monospace", fontWeight: 700 }}>{value}{unit}</span>
+      </div>
+      <input type="range" min={min} max={max} step={step} value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        style={{ width: "100%", accentColor: color || BASE.acc, height: 4 }} />
+    </div>
+  );
+}
+
+// ─── pixel fox Easter egg ─────────────────────────────────────────────────────
+// Hidden: tap the header to send a small 8-bit fox trotting across the screen.
+// Self-contained CSS animation; renders nothing when not running.
+const FOX_PX = 5; // pixel scale
+// 14×10 sprite grid. Palette keys: . transparent, O rust, D dark, W white/cream, K black
+const FOX_FRAMES = [
+  [ // frame A — legs gathered
+    "..............",
+    "...O......O...",
+    "..OO......OO..",
+    "..OOOOOOOOOOO.",
+    ".OOOOOOOOOOOOW",
+    "WOOODOOOOOOOOO",
+    "WOOOOOOOOOOOO.",
+    "..OO..OO..OO..",
+    "..KK..KK..KK..",
+    "..............",
+  ],
+  [ // frame B — legs extended (trot)
+    "..............",
+    "...O......O...",
+    "..OO......OO..",
+    "..OOOOOOOOOOO.",
+    ".OOOOOOOOOOOOW",
+    "WOOODOOOOOOOOO",
+    "WOOOOOOOOOOOO.",
+    ".OO...OO...OO.",
+    ".K.....KK....K",
+    ".K...........K",
+  ],
+];
+const FOX_COLORS = { O: "#E8893A", D: "#1A1205", W: "#F5E6D0", K: "#2A1B08" };
+
+function PixelFox({ frame }) {
+  const grid = FOX_FRAMES[frame];
+  return (
+    <svg width={14 * FOX_PX} height={10 * FOX_PX} style={{ display: "block", imageRendering: "pixelated" }}>
+      {grid.map((row, y) =>
+        row.split("").map((ch, x) =>
+          ch !== "." ? (
+            <rect key={`${x}-${y}`} x={x * FOX_PX} y={y * FOX_PX} width={FOX_PX} height={FOX_PX} fill={FOX_COLORS[ch]} />
+          ) : null
+        )
+      )}
+    </svg>
+  );
+}
+
+// ─── root ─────────────────────────────────────────────────────────────────────
+export default function App() {
+  // tab
+  const [tab, setTab] = useState("COMPARE");
+
+  // pixel fox easter egg
+  const [foxRunning, setFoxRunning] = useState(false);
+  const [foxFrame, setFoxFrame] = useState(0);
+  const foxCooldown = useRef(false);
+  const foxTimers = useRef([]);
+  const triggerFox = () => {
+    if (foxRunning || foxCooldown.current) return;
+    foxCooldown.current = true;
+    setFoxRunning(true);
+    // leg-cycle animation
+    const legTimer = setInterval(() => setFoxFrame(f => (f + 1) % 2), 110);
+    foxTimers.current.push(legTimer);
+    // run lasts ~2.6s, then 1.5s cooldown
+    const endTimer = setTimeout(() => {
+      setFoxRunning(false);
+      clearInterval(legTimer);
+      setTimeout(() => { foxCooldown.current = false; }, 1500);
+    }, 2600);
+    foxTimers.current.push(endTimer);
+  };
+  useEffect(() => () => { foxTimers.current.forEach(t => { clearInterval(t); clearTimeout(t); }); }, []);
+
+  // color scheme
+  const [schemeKey, setSchemeKey] = useState("c1");
+  const S = SCHEMES[schemeKey];
+  BASE = S; // route the entire theme (bg/accent/tiers/etc.) through the scheme
+  const cycleScheme = () => {
+    const i = SCHEME_ORDER.indexOf(schemeKey);
+    setSchemeKey(SCHEME_ORDER[(i + 1) % SCHEME_ORDER.length]);
+  };
+
+  // shared levers (persistent across all tabs). All feed the physics:
+  // spokes & rim → strength + chart; weight → ride profile + impact forces;
+  // tension → strength (small) + tension histogram; offset → strength + balance.
+  const [spokes, setSpokes]   = useState("28");
+  const [rim, setRim]         = useState('29"');
+  const [ride, setRide]       = useState("Trail");
+  const [riderKg, setRiderKg] = useState(82);
+  const [tension, setTension] = useState(120);
+  const [offset, setOffset]   = useState(0);
+
+  // simulate animation state (ride chart)
+  const [revealed, setRevealed]     = useState(0);
+  const [simulating, setSimulating] = useState(false);
+  const intervalRef = useRef(null);
+
+  // chaos roll-&-lock: each Simulate rolls 1–5 and a fresh runSeed; "locked"
+  // run can be replayed identically. lastRun holds the committed roll/seed.
+  const [lastRun, setLastRun] = useState(null); // { chaos, runSeed } | null
+
+  // slow-mo impact simulator state
+  const [scenario, setScenario]   = useState("rock");
+  const [impactRev, setImpactRev] = useState(0);
+  const [impactPlaying, setImpactPlaying] = useState(false);
+  const impactInterval = useRef(null);
+
+  // strength math
+  const spokeMult = parseInt(spokes) / 28;
+  const rimMult   = rim === '27.5"' ? 1.06 : rim === '32"' ? 0.93 : 1.00;
+  const offMult148 = 1 + offset * 0.014;
+  const offMult157 = 1 + offset * 0.008;
+  // Spoke tension has a small effect on lateral strength (mostly durability),
+  // modeled as a gentle factor around the 120 kgf reference.
+  const tensMult = 0.94 + (tension / 120) * 0.06;
+  const cap157 = Math.round(BASE_157 * spokeMult * rimMult * offMult157 * tensMult);
+  const cap148 = Math.round(BASE_148 * spokeMult * rimMult * offMult148 * tensMult);
+  // one-decimal versions for COMPARE-tab display (chart math uses the integers above)
+  const cap157d = (BASE_157 * spokeMult * rimMult * offMult157 * tensMult).toFixed(1);
+  const cap148d = (BASE_148 * spokeMult * rimMult * offMult148 * tensMult).toFixed(1);
+
+  const geo148 = HUB_GEO["148"];
+  const geo157 = HUB_GEO["157"];
+  const meta = RIDE_META[ride];
+
+  // ride profile — driven by committed chaos/seed + weight. Before first roll,
+  // show a calm preview (chaos 2, no run seed) so the chart isn't empty-looking.
+  const data = useMemo(() => {
+    const chaos   = lastRun ? lastRun.chaos   : 2;
+    const runSeed = lastRun ? lastRun.runSeed : 0;
+    return makeProfile(ride, { chaos, weightKg: riderKg, runSeed });
+  }, [ride, riderKg, lastRun]);
+
+  // peak point (for callout) + per-point overload flags (for failure pulses)
+  const peakPt = useMemo(() => data.reduce((m, d) => (d.load > m.load ? d : m), data[0]), [data]);
+
+  useEffect(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    setRevealed(0); setSimulating(false); setLastRun(null);
+  }, [ride, spokes, rim, offset, riderKg, tension]);
+  useEffect(() => () => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (impactInterval.current) clearInterval(impactInterval.current);
+  }, []);
+
+  // animate the drawing of the ride line left→right
+  const animateReveal = () => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    setRevealed(0);
+    const total = 280, stepMs = 16, steps = Math.ceil(1900 / stepMs);
+    const ptsPerStep = Math.max(1, Math.ceil(total / steps));
+    let i = 0;
+    intervalRef.current = setInterval(() => {
+      i += ptsPerStep;
+      if (i >= total) { setRevealed(total); setSimulating(false); clearInterval(intervalRef.current); }
+      else setRevealed(i);
+    }, stepMs);
+  };
+
+  // roll new chaos + seed, then animate
+  const rollAndSimulate = () => {
+    const chaos = 1 + Math.floor(Math.random() * 5);   // 1–5
+    const runSeed = 1 + Math.floor(Math.random() * 100000);
+    setLastRun({ chaos, runSeed });
+    setSimulating(true);
+    // reveal starts after state commits
+    setTimeout(animateReveal, 0);
+  };
+
+  // replay the exact locked run
+  const replayLocked = () => {
+    if (!lastRun) return;
+    setSimulating(true);
+    setTimeout(animateReveal, 0);
+  };
+
+  const chartData = useMemo(
+    () => data.map((d, i) => (i < revealed
+      ? { ...d, over148: d.load > cap148, over157: d.load > cap157 }
+      : { t: d.t, load: null })),
+    [data, revealed, cap148, cap157]
+  );
+  const stats = useMemo(() => ({
+    e148: countEvents(data, cap148),
+    e157: countEvents(data, cap157),
+    max:  Math.max(...data.map(d => d.load)),
+  }), [data, cap148, cap157]);
+  const yMax = Math.max(cap157 + 12, stats.max + 6);
+
+  const hasRolled = lastRun !== null;
+  const simLabel = simulating ? "● Simulating…" : hasRolled ? "🎲 Re-roll" : "▶ Simulate";
+
+  // ── slow-mo impact computation ──
+  const impact148 = useMemo(() => {
+    const ft = impactForceTrace(IMPACT_SCENARIOS[scenario], riderKg);
+    return deflectionTrace(ft, cap148, geo148.metrics["Lateral Stiffness"]);
+  }, [scenario, riderKg, cap148]);
+  const impact157 = useMemo(() => {
+    const ft = impactForceTrace(IMPACT_SCENARIOS[scenario], riderKg);
+    return deflectionTrace(ft, cap157, geo157.metrics["Lateral Stiffness"]);
+  }, [scenario, riderKg, cap157]);
+  const impactPeakF = useMemo(() =>
+    Math.max(...impactForceTrace(IMPACT_SCENARIOS[scenario], riderKg).map(p => p.force)),
+  [scenario, riderKg]);
+
+  const playImpact = () => {
+    if (impactInterval.current) clearInterval(impactInterval.current);
+    setImpactRev(0); setImpactPlaying(true);
+    const total = 120, stepMs = 28; // slow-mo: ~3.4s for 120 frames
+    let i = 0;
+    impactInterval.current = setInterval(() => {
+      i += 1;
+      if (i >= total) { setImpactRev(total); setImpactPlaying(false); clearInterval(impactInterval.current); }
+      else setImpactRev(i);
+    }, stepMs);
+  };
+
+  useEffect(() => { // reset slow-mo when scenario/weight/strength changes
+    if (impactInterval.current) clearInterval(impactInterval.current);
+    setImpactRev(0); setImpactPlaying(false);
+  }, [scenario, riderKg, spokes, rim, offset]);
+
+  // ── Deep Dive datasets (merge 148 & 157 onto shared x where charts overlay) ──
+  const deflect = useMemo(() => {
+    const a = deflectionCurve(cap148, geo148.metrics["Lateral Stiffness"]);
+    const b = deflectionCurve(cap157, geo157.metrics["Lateral Stiffness"]);
+    const map = new Map();
+    a.forEach(p => map.set(p.f, { f: p.f, d148: p.d }));
+    b.forEach(p => { const e = map.get(p.f) || { f: p.f }; e.d157 = p.d; map.set(p.f, e); });
+    return Array.from(map.values()).sort((x, y) => x.f - y.f);
+  }, [cap148, cap157]);
+
+  const tens148 = useMemo(() => tensionHistogram(geo148, tension, parseInt(spokes)), [tension, spokes]);
+  const tens157 = useMemo(() => tensionHistogram(geo157, tension, parseInt(spokes)), [tension, spokes]);
+
+  const fatigue148 = useMemo(() => fatigueCurve(cap148).map(p => ({ cycles: p.cycles, stress: p.stress })), [cap148]);
+  const fatigue157 = useMemo(() => fatigueCurve(cap157).map(p => ({ cycles: p.cycles, stress: p.stress })), [cap157]);
+
+  const verdict =
+    stats.e157 > 0
+      ? `${stats.e157} impact event${stats.e157 > 1 ? "s" : ""} exceed even the 157mm limit (${cap157} kgf). 148mm (${cap148} kgf) is overloaded ${stats.e148} times. 157mm is the stronger choice on terrain this aggressive.`
+    : stats.e148 > 0
+      ? `148mm (${cap148} kgf) is overloaded ${stats.e148} time${stats.e148 > 1 ? "s" : ""} on this ${meta.label} profile. 157mm (${cap157} kgf, +${Math.round((cap157/cap148-1)*100)}%) handles every hit with margin to spare.`
+    : `At ${meta.label} intensity both wheels handle the loads. 157mm (${cap157} kgf) vs 148mm (${cap148} kgf) — the advantage is available but not tested here.`;
+
+  const TABS = ["COMPARE", "SIMULATION", "DEEP DIVE"];
+
+  return (
+    <div style={{ background: BASE.bg, color: BASE.txt, fontFamily: "system-ui, sans-serif", minHeight: "100vh", maxWidth: 720, margin: "0 auto" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap');
+        * { box-sizing: border-box; }
+        input[type=range] { cursor: pointer; }
+        @keyframes foxTrot {
+          0%   { left: -80px; transform: translateY(0); }
+          25%  { transform: translateY(-3px); }
+          50%  { transform: translateY(0); }
+          75%  { transform: translateY(-3px); }
+          100% { left: 100%; transform: translateY(0); }
+        }
+      `}</style>
+
+      {/* ── pixel fox easter egg overlay ── */}
+      {foxRunning && (
+        <div style={{
+          position: "fixed", top: "50%", left: "-80px", zIndex: 9999,
+          pointerEvents: "none", animation: "foxTrot 2.6s linear forwards",
+        }}>
+          <PixelFox frame={foxFrame} />
+        </div>
+      )}
+
+      {/* ── header ── */}
+      <div style={{ background: BASE.surf, borderBottom: `1px solid ${BASE.bdr}`, padding: "14px 20px 0" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <div onClick={triggerFox} title="" style={{ fontSize: 9, color: BASE.muted, letterSpacing: "0.14em", fontFamily: "Space Grotesk, system-ui", marginBottom: 4, cursor: "default", userSelect: "none" }}>
+              POST MILLENNIUM RENAISSANCE MTB
+            </div>
+            <h1 style={{ fontFamily: "Space Grotesk, system-ui", fontWeight: 700, fontSize: 20, margin: "0 0 3px", letterSpacing: "-0.02em" }}>
+              Wheel Strength Lab
+            </h1>
+            <div style={{ fontSize: 11, color: BASE.muted, marginBottom: 12 }}>
+              {tab === "DEEP DIVE" ? "148mm vs 157mm" : "148mm Boost vs 157mm Super Boost"}
+            </div>
+          </div>
+          {/* color scheme cycle */}
+          <button onClick={cycleScheme} style={{
+            display: "flex", alignItems: "center", gap: 6, padding: "5px 10px",
+            background: BASE.surfl, border: `1px solid ${BASE.bdr}`, borderRadius: 6,
+            cursor: "pointer", color: BASE.muted, fontSize: 10, fontFamily: "Space Mono, monospace",
+            whiteSpace: "nowrap", flexShrink: 0,
+          }}>
+            <span style={{ display: "flex", gap: 2, flexShrink: 0 }}>
+              <span style={{ width: 9, height: 9, borderRadius: "50%", background: S.h148 }} />
+              <span style={{ width: 9, height: 9, borderRadius: "50%", background: S.h157 }} />
+              <span style={{ width: 9, height: 9, borderRadius: "50%", background: S.cap157 }} />
+            </span>
+            {S.name}
+          </button>
+        </div>
+
+        {/* ── tab bar ── */}
+        <div style={{ display: "flex", gap: 2 }}>
+          {TABS.map(t => (
+            <button key={t} onClick={() => setTab(t)} style={{
+              padding: "9px 16px", background: "transparent", border: "none",
+              borderBottom: tab === t ? `2px solid ${BASE.acc}` : "2px solid transparent",
+              cursor: "pointer", color: tab === t ? BASE.txt : BASE.muted,
+              fontSize: 11, fontFamily: "Space Grotesk, system-ui", fontWeight: tab === t ? 700 : 500,
+              letterSpacing: "0.06em",
+            }}>{t}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── persistent control bar (applies across all tabs) ── */}
+      <div style={{ background: BASE.surfl, borderBottom: `1px solid ${BASE.bdr}`, padding: "10px 16px", display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+        <Seg label="Spokes" opts={["28", "32", "36"]} val={spokes} set={setSpokes} activeColor={BASE.acc} />
+        <Seg label="Rim" opts={['27.5"', '29"', '32"']} val={rim} set={setRim} activeColor={BASE.acc} />
+        <div style={{ width: 1, height: 22, background: BASE.bdr }} />
+        {/* levers drive physics across all tabs */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 150, flex: 1 }}>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 10, color: BASE.muted }}>Rider+bike</span>
+            <span style={{ fontSize: 10, color: BASE.acc, fontFamily: "Space Mono, monospace", fontWeight: 700 }}>
+              {Math.round(riderKg * 2.205)} lb · {riderKg} kg
+            </span>
+          </div>
+          <input type="range" min={55} max={140} step={1} value={riderKg}
+            onChange={(e) => setRiderKg(Number(e.target.value))}
+            style={{ width: "100%", accentColor: BASE.acc, height: 4 }} />
+        </div>
+        <Slider label="Spoke tension" value={tension} min={80} max={125} step={5} unit=" kgf" onChange={setTension} color={BASE.acc} />
+        <Slider label="Rim offset" value={offset} min={0} max={4} step={0.5} unit="mm" onChange={setOffset} color={BASE.acc} />
+      </div>
+
+      {/* ── rim-offset tradeoff note (only when offset > 0) ── */}
+      {offset > 0 && (
+        <div style={{
+          background: BASE.surfl, borderBottom: `1px solid ${BASE.warn}55`,
+          padding: "9px 16px", display: "flex", gap: 9, alignItems: "flex-start",
+        }}>
+          <span style={{ fontSize: 11, color: BASE.warn, flexShrink: 0, marginTop: 1 }}>⚖</span>
+          <div>
+            <span style={{ fontSize: 10.5, color: BASE.warn, fontWeight: 600, fontFamily: "Space Grotesk, system-ui" }}>
+              Rim offset is a workaround, not a solution.
+            </span>
+            <span style={{ fontSize: 10.5, color: BASE.muted, lineHeight: 1.55 }}>
+              {" "}It trades symmetry in the spokes for asymmetry in the rim — so the rim must be
+              overbuilt to resist the resulting twisting forces. You're moving the imbalance, not removing it. A trade-off, not a fix.
+            </span>
+          </div>
+        </div>
+      )}
+
+      <div style={{ padding: "14px 14px 28px" }}>
+
+        {/* ═══════════ COMPARE — ruthlessly simple ═══════════ */}
+        {tab === "COMPARE" && (
+          <>
+            <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+              {[{ geo: geo148, cap: cap148d, color: S.h148 }, { geo: geo157, cap: cap157d, color: S.h157 }].map(({ geo, cap, color }) => {
+                const symmetry = Math.round((geo.flangeL / geo.flangeR) * 100);
+                return (
+                <div key={geo.label} style={{ flex: 1, background: BASE.surf, border: `1px solid ${BASE.bdr}`, borderTop: `3px solid ${color}`, borderRadius: "0 0 8px 8px" }}>
+                  <div style={{ padding: "8px 12px 6px", borderBottom: `1px solid ${BASE.bdr}` }}>
+                    <div style={{ fontFamily: "Space Grotesk, system-ui", fontWeight: 700, fontSize: 12, color }}>{geo.label}</div>
+                    <div style={{ fontSize: 9, color: BASE.muted, marginTop: 1 }}>{geo.tag}</div>
+                  </div>
+                  <div style={{ padding: "4px 4px 0" }}>
+                    <HubDiagram geo={geo} capKgf={cap} color={color} />
+                  </div>
+                  {/* total flange width */}
+                  <div style={{ padding: "8px 12px 6px", borderTop: `1px solid ${BASE.bdr}`, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                    <span style={{ fontSize: 9, color: BASE.muted, letterSpacing: "0.05em" }}>TOTAL FLANGE WIDTH</span>
+                    <span style={{ fontFamily: "Space Mono, monospace", fontWeight: 700, fontSize: 13, color }}>
+                      {(geo.flangeL + geo.flangeR).toFixed(1)}<span style={{ fontSize: 8, color: BASE.muted }}> mm</span>
+                    </span>
+                  </div>
+                  {/* NDS/DS spoke symmetry */}
+                  <div style={{ padding: "0 12px 10px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                    <span style={{ fontSize: 9, color: BASE.muted, letterSpacing: "0.05em" }}>
+                      NDS/DS SPOKE SYMMETRY <span style={{ opacity: 0.7 }}>(100% = balanced)</span>
+                    </span>
+                    <span style={{ fontFamily: "Space Mono, monospace", fontWeight: 700, fontSize: 13, color }}>
+                      {symmetry}<span style={{ fontSize: 8, color: BASE.muted }}> %</span>
+                    </span>
+                  </div>
+                </div>
+                );
+              })}
+            </div>
+
+            {/* felt-vs-unfelt reminder (persistent, simple) */}
+            <div style={{ background: BASE.surfl, border: `1px solid ${BASE.bdr}`, borderLeft: `3px solid ${BASE.acc}`, borderRadius: 8, padding: "11px 14px", marginBottom: 12 }}>
+              <div style={{ fontSize: 11, color: BASE.txt, fontWeight: 600, fontFamily: "Space Grotesk, system-ui", marginBottom: 3 }}>
+                Strength is insurance you can't feel
+              </div>
+              <p style={{ fontSize: 10.5, color: BASE.muted, margin: 0, lineHeight: 1.6 }}>
+                You won't sense lateral strength (margin-to-yield) on the trail — only at the moment it runs out.
+                Stiffness is the property you actually feel ride-to-ride. This tool measures the former.
+              </p>
+            </div>
+
+            <div style={{ fontSize: 9, color: BASE.muted, textAlign: "center", opacity: 0.5, marginTop: 8 }}>
+              Detailed metrics, simulations and engineering charts live in the SIMULATION and DEEP DIVE tabs.
+            </div>
+          </>
+        )}
+
+        {/* ═══════════ SIMULATION — ride chart, metrics, slow-mo impact ═══════════ */}
+        {tab === "SIMULATION" && (
+          <>
+            <Section title="RIDE DEMAND VS. WHEEL STRENGTH THRESHOLD" subtitle={meta.label}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, marginTop: 4, flexWrap: "wrap", gap: 8 }}>
+                <Seg label="Ride" opts={Object.keys(RIDE_META)} val={ride} set={setRide} activeColor={BASE.acc} />
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  {/* chaos die badge — shows the rolled value */}
+                  {hasRolled && (
+                    <div style={{
+                      display: "flex", alignItems: "center", gap: 5, padding: "5px 10px",
+                      background: BASE.surfl, border: `1px solid ${BASE.bdr}`, borderRadius: 6,
+                    }}>
+                      <span style={{ fontSize: 12 }}>🎲</span>
+                      <span style={{ fontSize: 10, color: BASE.muted, fontFamily: "Space Mono, monospace" }}>chaos</span>
+                      <span style={{ fontSize: 13, color: BASE.acc, fontFamily: "Space Mono, monospace", fontWeight: 700 }}>{lastRun.chaos}</span>
+                      <span style={{ fontSize: 9, color: BASE.dim, fontFamily: "Space Mono, monospace" }}>/5</span>
+                    </div>
+                  )}
+                  {/* replay locked run */}
+                  {hasRolled && !simulating && (
+                    <button onClick={replayLocked} style={{
+                      padding: "7px 12px", borderRadius: 7, cursor: "pointer",
+                      background: BASE.surfl, border: `1px solid ${BASE.bdr}`,
+                      color: BASE.muted, fontSize: 11, fontFamily: "Space Grotesk, system-ui", fontWeight: 600,
+                    }}>↻ Replay</button>
+                  )}
+                  {/* roll / re-roll */}
+                  <button onClick={rollAndSimulate} disabled={simulating} style={{
+                    padding: "7px 16px", borderRadius: 7, cursor: simulating ? "default" : "pointer",
+                    background: simulating ? BASE.surfl : `${BASE.acc}1c`, border: `1.5px solid ${simulating ? BASE.bdr : BASE.acc}`,
+                    color: simulating ? BASE.muted : BASE.acc, fontSize: 11, fontFamily: "Space Grotesk, system-ui", fontWeight: 700,
+                  }}>{simLabel}</button>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginBottom: 8, flexWrap: "wrap" }}>
+                {[{ c: S.cap157, l: `157mm ${cap157}kgf` }, { c: S.cap148, l: `148mm ${cap148}kgf` }, { c: S.impact, l: "ride load" }].map(({ c, l }) => (
+                  <div key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <div style={{ width: 16, height: 2.5, background: c, borderRadius: 2 }} />
+                    <span style={{ fontSize: 8, color: BASE.muted }}>{l}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ position: "relative" }}>
+                {!hasRolled && !simulating && (
+                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2, pointerEvents: "none" }}>
+                    <span style={{ fontSize: 11, color: BASE.muted, background: `${BASE.bg}cc`, padding: "6px 14px", borderRadius: 6, border: `1px solid ${BASE.bdr}`, textAlign: "center" }}>
+                      Press ▶ Simulate — rolls a 1–5 chaos level and draws the ride
+                    </span>
+                  </div>
+                )}
+                <ResponsiveContainer width="100%" height={260}>
+                  <LineChart data={chartData} margin={{ top: 14, right: 24, left: 4, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={BASE.bdr} opacity={0.4} vertical={false} />
+                    <XAxis dataKey="t" ticks={[0, 70, 140, 210, 279]}
+                      tickFormatter={(v) => v === 0 ? "Start" : v === 279 ? "End" : `${Math.round(v / 279 * 60)}m`}
+                      tick={{ fill: BASE.muted, fontSize: 9 }} axisLine={{ stroke: BASE.bdr }} tickLine={false} />
+                    <YAxis domain={[0, yMax]} ticks={[0, 10, 20, cap148, cap157]}
+                      tick={{ fill: BASE.muted, fontSize: 9 }} axisLine={{ stroke: BASE.bdr }} tickLine={false} width={30}
+                      label={{ value: "kgf", angle: -90, position: "insideLeft", offset: 10, fill: BASE.muted, fontSize: 8 }} />
+                    <Tooltip content={(p) => <ImpactTooltip {...p} cap148={cap148} cap157={cap157} S={S} />} />
+                    <ReferenceArea y1={0} y2={cap148} fill={BASE.acc} fillOpacity={0.03} />
+                    <ReferenceArea y1={cap148} y2={cap157} fill={S.cap148} fillOpacity={0.13} />
+                    <ReferenceArea y1={cap157} y2={yMax} fill={S.cap157} fillOpacity={0.14} />
+                    <ReferenceLine y={cap157} stroke={S.cap157} strokeWidth={2.5}
+                      label={{ value: `${cap157}`, position: "right", fill: S.cap157, fontSize: 10, fontFamily: "Space Mono, monospace", fontWeight: 700 }} />
+                    <ReferenceLine y={cap148} stroke={S.cap148} strokeWidth={2.5}
+                      label={{ value: `${cap148}`, position: "right", fill: S.cap148, fontSize: 10, fontFamily: "Space Mono, monospace", fontWeight: 700 }} />
+                    {/* peak callout — only once fully drawn */}
+                    {revealed >= 280 && (
+                      <ReferenceDot x={peakPt.t} y={peakPt.load} r={4}
+                        fill={peakPt.load > cap157 ? S.cap157 : peakPt.load > cap148 ? S.cap148 : BASE.acc}
+                        stroke={BASE.bg} strokeWidth={1.5}
+                        label={{ value: `peak ${peakPt.load.toFixed(0)}`, position: "top", fill: BASE.txt, fontSize: 9, fontFamily: "Space Mono, monospace", fontWeight: 700 }} />
+                    )}
+                    {/* failure-pulse dots: points that exceed a threshold */}
+                    <Line dataKey="load" stroke={S.impact} strokeWidth={1.8} connectNulls={false} isAnimationActive={false}
+                      dot={(props) => {
+                        const { cx, cy, payload, index } = props;
+                        if (payload.load == null) return null;
+                        if (payload.load > cap157) return <circle key={index} cx={cx} cy={cy} r={3.5} fill={S.cap157} stroke={BASE.bg} strokeWidth={1} />;
+                        if (payload.load > cap148) return <circle key={index} cx={cx} cy={cy} r={2.5} fill={S.cap148} />;
+                        return null;
+                      }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* stats */}
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                {[
+                  { value: hasRolled ? stats.e148 : "—", label: "148mm overloads", sub: !hasRolled ? "roll to test" : stats.e148 === 0 ? "none" : `${stats.e148} event${stats.e148 > 1 ? "s" : ""}`, color: hasRolled && stats.e148 > 0 ? S.cap148 : BASE.acc },
+                  { value: hasRolled ? stats.e157 : "—", label: "157mm overloads", sub: !hasRolled ? "roll to test" : stats.e157 === 0 ? "zero — margin held" : `${stats.e157} event${stats.e157 > 1 ? "s" : ""}`, color: hasRolled && stats.e157 > 0 ? S.cap157 : BASE.acc },
+                  { value: hasRolled ? stats.max.toFixed(0) : "—", label: "Peak load", sub: "kgf", color: hasRolled && stats.max > cap157 ? S.cap157 : hasRolled && stats.max > cap148 ? S.cap148 : BASE.acc },
+                ].map(({ value, label, sub, color }) => (
+                  <div key={label} style={{ flex: 1, background: BASE.surfl, border: `1px solid ${BASE.bdr}`, borderRadius: 8, padding: "10px 12px" }}>
+                    <div style={{ fontFamily: "Space Mono, monospace", fontWeight: 700, fontSize: 22, color: hasRolled ? color : BASE.dim }}>{value}</div>
+                    <div style={{ fontSize: 10, color: BASE.txt, marginTop: 3 }}>{label}</div>
+                    <div style={{ fontSize: 9, color: BASE.muted, marginTop: 2 }}>{sub}</div>
+                  </div>
+                ))}
+              </div>
+              {hasRolled && (
+                <div style={{ fontSize: 9, color: BASE.muted, opacity: 0.65, marginTop: 8, lineHeight: 1.5 }}>
+                  Overloads & peak reflect <em>this</em> rolled run (chaos {lastRun.chaos}/5). The same trail ridden again
+                  stresses the wheel differently — that variation is exactly why strength margin matters. ↻ Replay re-runs this
+                  exact ride; 🎲 Re-roll draws a new one.
+                </div>
+              )}
+            </Section>
+
+            <Section title="STRENGTH METRICS" subtitle="relative index, 157mm = 100">
+              <div style={{ marginTop: 6 }}>
+                {METRIC_LIST.map(({ key, note }) => (
+                  <MetricRow key={key} label={key} note={note} v148={geo148.metrics[key]} v157={geo157.metrics[key]} S={S} />
+                ))}
+              </div>
+            </Section>
+
+            <Section title="ANALYSIS" subtitle={`${meta.label} · ${spokes}h · ${rim}`}>
+              <p style={{ fontSize: 11, color: BASE.muted, margin: "8px 0 0", lineHeight: 1.65 }}>
+                {hasRolled
+                  ? verdict
+                  : `157mm threshold ${cap157} kgf vs 148mm ${cap148} kgf — a +${Math.round((cap157/cap148-1)*100)}% strength margin in this configuration. Roll a ride above to see how each holds up against real impact loads.`}
+              </p>
+              <p style={{ fontSize: 9, color: BASE.muted, margin: "8px 0 0", opacity: 0.6, lineHeight: 1.55 }}>
+                Strength model: Σ T_i × sin(α_i) per side, scaled by an empirical engagement factor calibrated to
+                real-world lateral test thresholds (≈35–45 kgf). Ride profile illustrative.
+              </p>
+            </Section>
+
+            <Section title="SLOW-MO SINGLE IMPACT" subtitle={IMPACT_SCENARIOS[scenario].label}>
+              <p style={{ fontSize: 10.5, color: BASE.muted, margin: "6px 0 10px", lineHeight: 1.55 }}>
+                One hit, played slowly. Watch the rim deflect sideways, then read the outcome:
+                <strong style={{ color: BASE.acc }}> Holds</strong> (springs back, no damage),
+                <strong style={{ color: BASE.warn }}> Bends</strong> (minor permanent set — out of true but rideable), or
+                <strong style={{ color: BASE.fail }}> Taco'd</strong> (folded — walk home). Force scales with rider+bike weight.
+              </p>
+
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                {Object.entries(IMPACT_SCENARIOS).map(([key, sc]) => (
+                  <button key={key} onClick={() => setScenario(key)} style={{
+                    padding: "6px 12px", borderRadius: 7, cursor: "pointer",
+                    background: scenario === key ? `${BASE.acc}1c` : BASE.surfl,
+                    border: `1px solid ${scenario === key ? BASE.acc : BASE.bdr}`,
+                    color: scenario === key ? BASE.acc : BASE.muted,
+                    fontSize: 10.5, fontFamily: "Space Grotesk, system-ui", fontWeight: scenario === key ? 700 : 500,
+                  }}>{sc.label}</button>
+                ))}
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
+                <span style={{ fontSize: 10, color: BASE.muted, fontStyle: "italic" }}>{IMPACT_SCENARIOS[scenario].desc}</span>
+                <button onClick={playImpact} disabled={impactPlaying} style={{
+                  padding: "7px 16px", borderRadius: 7, cursor: impactPlaying ? "default" : "pointer",
+                  background: impactPlaying ? BASE.surfl : `${BASE.acc}1c`, border: `1.5px solid ${impactPlaying ? BASE.bdr : BASE.acc}`,
+                  color: impactPlaying ? BASE.muted : BASE.acc, fontSize: 11, fontFamily: "Space Grotesk, system-ui", fontWeight: 700,
+                }}>{impactPlaying ? "● Playing…" : impactRev >= 120 ? "↻ Replay" : "▶ Play impact"}</button>
+              </div>
+
+              {/* impact peak vs each wheel's strength — quick read */}
+              <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                {(() => {
+                  const TIER_COLOR = { ok: BASE.ok, warn: BASE.warn, fail: BASE.fail };
+                  const t148 = impactTier(impact148.plastic);
+                  const t157 = impactTier(impact157.plastic);
+                  return [
+                    { label: "Impact peak", value: `${impactPeakF.toFixed(0)}`, unit: "kgf", color: BASE.txt },
+                    { label: "148mm", value: t148.word, unit: t148.note, color: TIER_COLOR[t148.tone] },
+                    { label: "157mm", value: t157.word, unit: t157.note, color: TIER_COLOR[t157.tone] },
+                  ].map(({ label, value, unit, color }) => (
+                    <div key={label} style={{ flex: 1, background: BASE.surfl, border: `1px solid ${BASE.bdr}`, borderRadius: 8, padding: "8px 10px" }}>
+                      <div style={{ fontSize: 9, color: BASE.muted }}>{label}</div>
+                      <div style={{ fontFamily: "Space Mono, monospace", fontWeight: 700, fontSize: 16, color }}>{value}</div>
+                      <div style={{ fontSize: 8.5, color: BASE.muted, fontFamily: "Space Mono, monospace" }}>{unit}</div>
+                    </div>
+                  ));
+                })()}
+              </div>
+
+              {/* deflection-over-time, both wheels, revealed during play */}
+              <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginBottom: 6 }}>
+                {[{ c: S.h148, l: "148mm rim" }, { c: S.h157, l: "157mm rim" }].map(({ c, l }) => (
+                  <div key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <div style={{ width: 16, height: 2.5, background: c, borderRadius: 2 }} />
+                    <span style={{ fontSize: 9, color: BASE.muted }}>{l}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ position: "relative" }}>
+                {impactRev === 0 && !impactPlaying && (
+                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2, pointerEvents: "none" }}>
+                    <span style={{ fontSize: 11, color: BASE.muted, background: `${BASE.bg}cc`, padding: "6px 14px", borderRadius: 6, border: `1px solid ${BASE.bdr}` }}>
+                      Press ▶ Play impact to watch it in slow motion
+                    </span>
+                  </div>
+                )}
+                {/* taco flash — appears once the animation finishes if a wheel folded */}
+                {impactRev >= 120 && (impactTier(impact148.plastic).tone === "fail" || impactTier(impact157.plastic).tone === "fail") && (
+                  <div style={{ position: "absolute", top: 6, left: 0, right: 0, display: "flex", justifyContent: "center", zIndex: 3, pointerEvents: "none" }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", background: BASE.fail, padding: "3px 12px", borderRadius: 5, fontFamily: "Space Grotesk, system-ui", letterSpacing: "0.04em" }}>
+                      ⚠ RIM TACO'D
+                    </span>
+                  </div>
+                )}
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart margin={{ top: 8, right: 16, left: 4, bottom: 16 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={BASE.bdr} opacity={0.4} />
+                    <XAxis dataKey="t" type="number" domain={[0, 119]} ticks={[0, 30, 60, 90, 119]}
+                      tickFormatter={(v) => `${(v / 119 * 0.5).toFixed(2)}s`}
+                      tick={{ fill: BASE.muted, fontSize: 9 }} axisLine={{ stroke: BASE.bdr }} tickLine={false}
+                      label={{ value: "time (slow-mo)", position: "insideBottom", offset: -8, fill: BASE.muted, fontSize: 9 }} />
+                    <YAxis domain={[0, (dataMax) => Math.max(dataMax, 0.5)]} allowDataOverflow={false}
+                      tick={{ fill: BASE.muted, fontSize: 9 }} axisLine={{ stroke: BASE.bdr }} tickLine={false} width={34}
+                      label={{ value: "rim Δ (mm)", angle: -90, position: "insideLeft", offset: 12, fill: BASE.muted, fontSize: 9 }} />
+                    <Tooltip
+                      contentStyle={{ background: BASE.surf, border: `1px solid ${BASE.bdr}`, borderRadius: 6, fontSize: 11 }}
+                      formatter={(v, n) => [`${v} mm`, n]}
+                      labelFormatter={() => "rim deflection"} />
+                    {/* baseline (true) */}
+                    <ReferenceLine y={0} stroke={BASE.muted} strokeWidth={1} opacity={0.5}
+                      label={{ value: "true", position: "left", fill: BASE.muted, fontSize: 8 }} />
+                    {/* permanent-set lines: where each rim ends up if it didn't return */}
+                    {impactRev >= 120 && impact148.plastic > 0 && (
+                      <ReferenceLine y={impact148.plastic} stroke={S.h148} strokeDasharray="4 3" strokeWidth={1.5}
+                        label={{ value: `148 set ${impact148.plastic}mm`, position: "right", fill: S.h148, fontSize: 8, fontFamily: "Space Mono, monospace" }} />
+                    )}
+                    {impactRev >= 120 && impact157.plastic > 0 && (
+                      <ReferenceLine y={impact157.plastic} stroke={S.h157} strokeDasharray="4 3" strokeWidth={1.5}
+                        label={{ value: `157 set ${impact157.plastic}mm`, position: "right", fill: S.h157, fontSize: 8, fontFamily: "Space Mono, monospace" }} />
+                    )}
+                    <Line data={impact148.trace.slice(0, impactRev)} dataKey="deflection" stroke={S.h148} strokeWidth={2} dot={false} isAnimationActive={false} name="148mm" />
+                    <Line data={impact157.trace.slice(0, impactRev)} dataKey="deflection" stroke={S.h157} strokeWidth={2} dot={false} isAnimationActive={false} name="157mm" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <div style={{ fontSize: 9, color: BASE.muted, opacity: 0.6, marginTop: 6, lineHeight: 1.5 }}>
+                Back to the "true" line = sprang back, no damage (Holds). Ends above it = permanent set: a little is
+                out-of-true (Bends), a lot is a folded wheel (Taco'd). Heavier riders and bigger hits push weaker wheels over.
+              </div>
+            </Section>
+          </>
+        )}
+
+        {/* ═══════════ DEEP DIVE — the engineering tab ═══════════ */}
+        {tab === "DEEP DIVE" && (
+          <>
+            {/* ── 1. Deflection curve ── */}
+            <Section title="DEFLECTION CURVE" subtitle="force → rim movement">
+              <p style={{ fontSize: 10.5, color: BASE.muted, margin: "6px 0 10px", lineHeight: 1.55 }}>
+                How far the rim moves sideways under lateral force. The <strong style={{ color: BASE.txt }}>slope</strong> is
+                stiffness — the gentle part you feel ride-to-ride. The <strong style={{ color: BASE.txt }}>knee</strong>, where
+                the line bends and runs away, is the strength threshold: past it the wheel yields.
+              </p>
+              <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginBottom: 6 }}>
+                {[{ c: S.h148, l: "148mm" }, { c: S.h157, l: "157mm" }].map(({ c, l }) => (
+                  <div key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <div style={{ width: 16, height: 2.5, background: c, borderRadius: 2 }} />
+                    <span style={{ fontSize: 9, color: BASE.muted }}>{l}</span>
+                  </div>
+                ))}
+              </div>
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart data={deflect} margin={{ top: 4, right: 16, left: 4, bottom: 16 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={BASE.bdr} opacity={0.4} />
+                  <XAxis dataKey="f" type="number" tick={{ fill: BASE.muted, fontSize: 9 }}
+                    axisLine={{ stroke: BASE.bdr }} tickLine={false}
+                    label={{ value: "lateral force (kgf)", position: "insideBottom", offset: -8, fill: BASE.muted, fontSize: 9 }} />
+                  <YAxis tick={{ fill: BASE.muted, fontSize: 9 }} axisLine={{ stroke: BASE.bdr }} tickLine={false} width={34}
+                    label={{ value: "deflection (mm)", angle: -90, position: "insideLeft", offset: 12, fill: BASE.muted, fontSize: 9 }} />
+                  <Tooltip
+                    contentStyle={{ background: BASE.surf, border: `1px solid ${BASE.bdr}`, borderRadius: 6, fontSize: 11 }}
+                    labelStyle={{ color: BASE.muted }}
+                    formatter={(v, n) => [`${v} mm`, n === "d148" ? "148mm" : "157mm"]}
+                    labelFormatter={(v) => `${v} kgf`} />
+                  {/* knee markers at each strength threshold */}
+                  <ReferenceLine x={cap148} stroke={S.cap148} strokeDasharray="4 3" strokeWidth={1.5}
+                    label={{ value: `148 yield`, position: "top", fill: S.cap148, fontSize: 8, fontFamily: "Space Mono, monospace" }} />
+                  <ReferenceLine x={cap157} stroke={S.cap157} strokeDasharray="4 3" strokeWidth={1.5}
+                    label={{ value: `157 yield`, position: "top", fill: S.cap157, fontSize: 8, fontFamily: "Space Mono, monospace" }} />
+                  <Line dataKey="d148" stroke={S.h148} strokeWidth={2} dot={false} isAnimationActive={false} />
+                  <Line dataKey="d157" stroke={S.h157} strokeWidth={2} dot={false} isAnimationActive={false} />
+                </LineChart>
+              </ResponsiveContainer>
+              <div style={{ fontSize: 9, color: BASE.muted, opacity: 0.6, marginTop: 6, lineHeight: 1.5 }}>
+                Note: in the elastic (straight) region both wheels feel similar — stiffness differences are small and subtle.
+                The meaningful divergence is <em>where each line breaks</em>, which you never feel until it happens.
+              </div>
+            </Section>
+
+            {/* ── 2. Tension histogram ── */}
+            <Section title="SPOKE TENSION HISTOGRAM" subtitle="DS vs NDS balance" defaultOpen={false}>
+              <blockquote style={{
+                margin: "8px 0 12px", padding: "8px 14px", borderLeft: `3px solid ${BASE.acc}`,
+                background: BASE.surfl, borderRadius: "0 6px 6px 0",
+              }}>
+                <span style={{ fontSize: 12, color: BASE.txt, fontStyle: "italic", lineHeight: 1.5, fontFamily: "Space Grotesk, system-ui" }}>
+                  "The holy grail of wheel building has always been evenly tensioned spokes."
+                </span>
+                <span style={{ display: "block", fontSize: 10, color: BASE.muted, marginTop: 4, fontFamily: "Space Mono, monospace" }}>
+                  — Bill Shook
+                </span>
+              </blockquote>
+              <p style={{ fontSize: 10.5, color: BASE.muted, margin: "6px 0 10px", lineHeight: 1.55 }}>
+                Tension at each spoke around the wheel — all {spokes} of them. Drive-side (DS) and non-drive-side (NDS) alternate —
+                the <strong style={{ color: BASE.txt }}>gap between the two bands is the asymmetry</strong>. A bigger gap means
+                the NDS spokes are looser, which is where durability problems and spoke fatigue begin.
+              </p>
+              <div style={{ display: "flex", gap: 10 }}>
+                {[{ geo: geo148, t: tens148, color: S.h148, label: "148mm" }, { geo: geo157, t: tens157, color: S.h157, label: "157mm" }].map(({ t, color, label }) => (
+                  <div key={label} style={{ flex: 1 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                      <span style={{ fontSize: 10, color, fontWeight: 700, fontFamily: "Space Grotesk, system-ui" }}>{label}</span>
+                      <span style={{ fontSize: 9, color: BASE.muted, fontFamily: "Space Mono, monospace" }}>NDS/DS {t.ratio}%</span>
+                    </div>
+                    <ResponsiveContainer width="100%" height={170}>
+                      <BarChart data={t.rows} margin={{ top: 4, right: 4, left: -16, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={BASE.bdr} opacity={0.4} vertical={false} />
+                        <XAxis dataKey="spoke" tick={false} axisLine={{ stroke: BASE.bdr }} />
+                        <YAxis domain={[0, 130]} tick={{ fill: BASE.muted, fontSize: 8 }} axisLine={{ stroke: BASE.bdr }} tickLine={false} />
+                        <Tooltip
+                          contentStyle={{ background: BASE.surf, border: `1px solid ${BASE.bdr}`, borderRadius: 6, fontSize: 11 }}
+                          formatter={(v, n, p) => [`${v} kgf`, p.payload.side]}
+                          labelFormatter={(v) => `spoke ${v}`} />
+                        {/* DS reference line */}
+                        <ReferenceLine y={t.dsT} stroke={color} strokeDasharray="3 2" strokeWidth={1} opacity={0.5} />
+                        <ReferenceLine y={t.ndsT} stroke={color} strokeDasharray="3 2" strokeWidth={1} opacity={0.3} />
+                        <Bar dataKey="tension" radius={[2, 2, 0, 0]}>
+                          {t.rows.map((r, i) => (
+                            <Cell key={i} fill={color} fillOpacity={r.side === "DS" ? 1 : 0.45} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <div style={{ display: "flex", justifyContent: "space-around", fontSize: 8.5, fontFamily: "Space Mono, monospace", marginTop: 2 }}>
+                      <span style={{ color }}>DS {t.dsT}</span>
+                      <span style={{ color, opacity: 0.6 }}>NDS {t.ndsT}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ fontSize: 9, color: BASE.muted, opacity: 0.6, marginTop: 8, lineHeight: 1.5 }}>
+                Solid bars = drive side, faded = non-drive side. The closer the two dashed lines, the more balanced
+                (and durable) the build. 157mm's wider, more even flange spread narrows the gap. The tension slider
+                drives the DS value here — but notice it barely moves lateral <em>strength</em> on the other tabs. That's
+                real: tension governs durability and fatigue life far more than stiffness or strength. A common myth, inverted.
+              </div>
+            </Section>
+
+            {/* ── 3. S-N fatigue curve ── */}
+            <Section title="S-N FATIGUE CURVE" subtitle="why wheels die from repetition">
+              <p style={{ fontSize: 10.5, color: BASE.muted, margin: "6px 0 10px", lineHeight: 1.55 }}>
+                Stress vs. how many impact cycles a wheel survives before fatigue failure (log scale). A wheel rarely
+                dies from one big hit — it dies from <strong style={{ color: BASE.txt }}>thousands of medium ones</strong>.
+                The stronger wheel sits higher: at the same load it survives far more cycles.
+              </p>
+              <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginBottom: 6 }}>
+                {[{ c: S.h148, l: "148mm" }, { c: S.h157, l: "157mm" }].map(({ c, l }) => (
+                  <div key={l} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <div style={{ width: 16, height: 2.5, background: c, borderRadius: 2 }} />
+                    <span style={{ fontSize: 9, color: BASE.muted }}>{l}</span>
+                  </div>
+                ))}
+              </div>
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart margin={{ top: 4, right: 16, left: 4, bottom: 16 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={BASE.bdr} opacity={0.4} />
+                  <XAxis dataKey="cycles" type="number" scale="log" domain={[10, 200000]} allowDataOverflow
+                    tick={{ fill: BASE.muted, fontSize: 9 }} axisLine={{ stroke: BASE.bdr }} tickLine={false}
+                    ticks={[10, 100, 1000, 10000, 100000]}
+                    tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`}
+                    label={{ value: "cycles to failure (log)", position: "insideBottom", offset: -8, fill: BASE.muted, fontSize: 9 }} />
+                  <YAxis dataKey="stress" type="number" domain={[0, Math.ceil(cap157 * 1.3 / 10) * 10]}
+                    tick={{ fill: BASE.muted, fontSize: 9 }} axisLine={{ stroke: BASE.bdr }} tickLine={false} width={34}
+                    label={{ value: "stress (kgf)", angle: -90, position: "insideLeft", offset: 12, fill: BASE.muted, fontSize: 9 }} />
+                  <Tooltip
+                    contentStyle={{ background: BASE.surf, border: `1px solid ${BASE.bdr}`, borderRadius: 6, fontSize: 11 }}
+                    formatter={(v) => [`${v} kgf`, "stress"]}
+                    labelFormatter={(v) => `${v >= 1000 ? (v / 1000).toFixed(1) + "k" : v} cycles`} />
+                  <Line data={fatigue148} dataKey="stress" stroke={S.h148} strokeWidth={2} dot={false} isAnimationActive={false} name="148mm" />
+                  <Line data={fatigue157} dataKey="stress" stroke={S.h157} strokeWidth={2} dot={false} isAnimationActive={false} name="157mm" />
+                </LineChart>
+              </ResponsiveContainer>
+              <div style={{ fontSize: 9, color: BASE.muted, opacity: 0.6, marginTop: 6, lineHeight: 1.5 }}>
+                Illustrative trend, not a manufacturer spec. The shape is what matters: small reductions in stress
+                (riding a stronger wheel, or lighter) buy disproportionately more wheel life.
+              </div>
+            </Section>
+
+            <div style={{ background: BASE.surfl, border: `1px solid ${BASE.bdr}`, borderLeft: `3px solid ${BASE.acc}`, borderRadius: 8, padding: "11px 14px" }}>
+              <div style={{ fontSize: 10.5, color: BASE.txt, fontWeight: 600, fontFamily: "Space Grotesk, system-ui", marginBottom: 3 }}>
+                The through-line
+              </div>
+              <p style={{ fontSize: 10.5, color: BASE.muted, margin: 0, lineHeight: 1.6 }}>
+                All three charts say the same thing differently: the wheels feel nearly identical in normal use
+                (deflection slope), but differ in margin (the knee), in balance (tension gap), and in how long that
+                margin lasts (fatigue). Strength is the part you don't feel — until you need it.
+              </p>
+            </div>
+          </>
+        )}
+
+      </div>
+    </div>
+  );
+}
