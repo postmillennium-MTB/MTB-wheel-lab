@@ -59,8 +59,132 @@ let BASE = { ...SCHEMES.c1 };
 // ─── base kgf strength (28 spokes, 29", 120 kgf DS tension) ──────────────────
 // Model: Σ T_i × sin(α_i), DS + NDS, scaled by an empirical engagement factor
 // calibrated so 148mm = 36 kgf (real-world lateral failure ≈ 35–45 kgf).
+// NOTE: BASE_157/148 are retained for the SIMULATION + slow-mo tabs (still on the
+// legacy scale this pass). COMPARE now runs the full Mode Matrix engine below.
 const BASE_157 = 42;
 const BASE_148 = 36;
+
+/* ════════════════════════════════════════════════════════════════════════════
+   MODE MATRIX ENGINE — ported from the Wheel Comparison Widget (Ford 2018).
+   Real hub geometry → physically-coupled lateral strength, stiffness, NDS/DS
+   tension ratio, buckling, and slack load. Symmetry and strength move TOGETHER,
+   as the academic model requires.
+   ════════════════════════════════════════════════════════════════════════════ */
+
+// Real-hub databases (measured flange offsets nds/ds in mm, build tensions pds/pnds).
+const HUBS_148 = [
+  { id: "h1",  name: "Onyx 148 MFU",                 nds: 36.9, ds: 22.92, pds: 50.0, pnds: 50.0 },
+  { id: "h5",  name: "Spank Hex J-Type Boost R148",  nds: 37,   ds: 25,    pds: 64.0, pnds: 58.0 },
+  { id: "h6",  name: "CK 148x12 Centerlock Rear",    nds: 36.3, ds: 24,    pds: 57.4, pnds: 57.4 },
+  { id: "h8",  name: "Project 321 G3 148x12",        nds: 32,   ds: 22,    pds: 60.5, pnds: 55.0 },
+  { id: "h10", name: "Hydra Mountain 6-Bolt 148",    nds: 38,   ds: 25,    pds: 60.0, pnds: 58.0 },
+  { id: "h12", name: "I9 Hydra Centerlock 148",      nds: 39,   ds: 24,    pds: 60.0, pnds: 49.0 },
+  { id: "h14", name: "I9 1/1 Mountain 6-Bolt 148",   nds: 37,   ds: 23,    pds: 60.0, pnds: 58.0 },
+  { id: "h15", name: "Hope Pro5 148 6-bolt",         nds: 35,   ds: 22.6,  pds: 59.0, pnds: 57.0 },
+  { id: "h17", name: "Erase MTB IS 148x12 V2",       nds: 38,   ds: 25,    pds: 56.0, pnds: 50.0 },
+  { id: "h20", name: "Hadley 148x12",                nds: 37.1, ds: 22.9,  pds: 59.0, pnds: 52.0 },
+];
+const HUBS_157 = [
+  { id: "h2",  name: "Onyx 150/157",                 nds: 41.4, ds: 27.42, pds: 50.0, pnds: 50.0 },
+  { id: "h3",  name: "Onyx 150/157 Vesper",          nds: 41.4, ds: 26.97, pds: 50.0, pnds: 42.0 },
+  { id: "h4",  name: "Spank Hex J-Type R150/157",    nds: 39.5, ds: 29.5,  pds: 64.0, pnds: 58.0 },
+  { id: "h7",  name: "CK 157 SB Centerlock Rear",    nds: 40.3, ds: 28.8,  pds: 57.4, pnds: 57.4 },
+  { id: "h9",  name: "Project 321 G3 157 SB",        nds: 32,   ds: 26,    pds: 60.5, pnds: 55.0 },
+  { id: "h11", name: "I9 Hydra 6-Bolt 150/157",      nds: 41,   ds: 29,    pds: 60.0, pnds: 58.0 },
+  { id: "h13", name: "I9 Hydra Centerlock 157 SB",   nds: 43,   ds: 28,    pds: 60.0, pnds: 49.0 },
+  { id: "h16", name: "Hope Pro5 150/157 6-bolt",     nds: 28,   ds: 25.8,  pds: 59.0, pnds: 57.0 },
+  { id: "h18", name: "Erase MTB IS 157x12 V2",       nds: 42.5, ds: 29.5,  pds: 56.0, pnds: 50.0 },
+  { id: "h19", name: "Hadley 150/157",               nds: 41.5, ds: 27.5,  pds: 59.0, pnds: 59.0 },
+];
+
+const WHEEL_ERDS = { "26": 534, "27.5": 559, "29": 600, "32": 667 };
+
+// Rim properties (DT Swiss TK540 defaults from the old widget). GJ dominates
+// lateral compliance per Ford §3.4.
+const RIM_PROPS = { EIL: 50, EIR: 150, GJ: 22, EA_rim: 11.5e6, modes: 24 };
+
+function spokeEA(d_mm) {
+  return 210e9 * Math.PI * Math.pow(d_mm / 2 / 1000, 2);
+}
+
+// Full Ford (2018) Mode Matrix calculation for one wheel side.
+// Returns { ratio (%), K_lat (N/mm), K_rad, F_lat (kgf), F_rad, T_c, T_c_ratio, F_slack }.
+function modeMatrix(erd_mm, hub, spkDS, spkNDS, tDS_kgf, EIL, EIR, GJ, EA_rim, Ns, N) {
+  const T_DS = tDS_kgf * 9.81;
+  const Re = erd_mm / 2 / 1000;
+  const Rr = Re + 0.011;
+  const d_DS = hub.ds / 1000, d_NDS = hub.nds / 1000;
+  const Rf_DS = hub.pds / 2 / 1000, Rf_NDS = hub.pnds / 2 / 1000;
+  const cos_x = Math.cos(4 * Math.PI * 3 / Ns);
+
+  const r2_DS = Re*Re + Rf_DS*Rf_DS - 2*Re*Rf_DS*cos_x;
+  const r2_NDS = Re*Re + Rf_NDS*Rf_NDS - 2*Re*Rf_NDS*cos_x;
+  const L_DS = Math.sqrt(d_DS*d_DS + r2_DS);
+  const L_NDS = Math.sqrt(d_NDS*d_NDS + r2_NDS);
+  const sin_DS = d_DS / L_DS, sin_NDS = d_NDS / L_NDS;
+  const ratio = sin_DS / sin_NDS;
+  const T_NDS = T_DS * ratio;
+
+  const EA_DS = spokeEA(spkDS), EA_NDS = spokeEA(spkNDS);
+  const kax_DS = EA_DS / L_DS, kax_NDS = EA_NDS / L_NDS;
+  const kl_DS = T_DS / L_DS + kax_DS * sin_DS * sin_DS;
+  const kl_NDS = T_NDS / L_NDS + kax_NDS * sin_NDS * sin_NDS;
+  const kr_DS = T_DS / L_DS + kax_DS * (r2_DS / (d_DS*d_DS + r2_DS));
+  const kr_NDS = T_NDS / L_NDS + kax_NDS * (r2_NDS / (d_NDS*d_NDS + r2_NDS));
+  const Ksl = (Ns / 2) * (kl_DS + kl_NDS);
+  const Ksr = (Ns / 2) * (kr_DS + kr_NDS);
+
+  const C0 = Math.PI / (Rr * Rr * Rr);
+  const P_hoop = (Ns / (2 * Math.PI)) * (
+    T_DS * (r2_DS / (L_DS * Re)) + T_NDS * (r2_NDS / (L_NDS * Re))
+  );
+
+  let C_lat = 1 / (2 * Ksl), C_rad = 1 / (2 * Ksr);
+  for (let m = 1; m <= N; m++) {
+    const qm1 = m * m - 1;
+    const Krim_lat = C0 * (EIL * qm1 * qm1 + GJ * qm1);
+    const Ksoft = P_hoop * qm1 / (Rr * Rr);
+    const Krim_rad = C0 * EIR * qm1 * qm1;
+    const Klm = Ksl + Krim_lat - Ksoft;
+    const Krm = Ksr + Krim_rad;
+    if (Klm > 0) C_lat += 1 / Klm;
+    if (Krm > 0) C_rad += 1 / Krm;
+  }
+  const K_lat = 1 / C_lat / 1000, K_rad = 1 / C_rad / 1000;
+
+  const F_lat_N = T_NDS * (K_lat * 1000) * L_NDS / (EA_NDS * sin_NDS);
+  const cos_lat_DS = Math.sqrt(r2_DS) / L_DS;
+  const F_rad_N = T_DS * (K_rad * 1000) * L_DS / (EA_DS * cos_lat_DS);
+
+  const kl_DS_static = kax_DS * sin_DS * sin_DS;
+  const kl_NDS_static = kax_NDS * sin_NDS * sin_NDS;
+  const Ksl_static = (Ns / 2) * (kl_DS_static + kl_NDS_static);
+  const dKsl_dT = (Ns / 2) * (1 / L_DS + ratio / L_NDS);
+  const dP_dT = (Ns / (2 * Math.PI)) * (r2_DS / (L_DS * Re) + ratio * r2_NDS / (L_NDS * Re));
+  let T_c_N = Infinity;
+  for (let m = 2; m <= N; m++) {
+    const qm1 = m * m - 1;
+    const Krim_m = C0 * (EIL * qm1 * qm1 + GJ * qm1);
+    const numer = Ksl_static + Krim_m;
+    const denom = dP_dT * qm1 / (Rr * Rr) - dKsl_dT;
+    if (denom > 0) { const Tc_m = numer / denom; if (Tc_m > 0 && Tc_m < T_c_N) T_c_N = Tc_m; }
+  }
+  const T_c_kgf = T_c_N / 9.81;
+
+  const cos_NDS_rad = Math.sqrt(r2_NDS) / L_NDS;
+  const F_slack_kgf = (T_NDS * (Ns / 2) / cos_NDS_rad) / 9.81;
+
+  return {
+    ratio: ratio * 100,
+    K_lat, K_rad,
+    F_lat: F_lat_N / 9.81,
+    F_rad: F_rad_N / 9.81,
+    T_c: T_c_kgf,
+    T_c_ratio: (tDS_kgf / T_c_kgf) * 100,
+    F_slack: F_slack_kgf,
+  };
+}
+
 
 // ─── SVG geometry ─────────────────────────────────────────────────────────────
 const SW = 280, SH = 188, CX = SW / 2;
@@ -637,19 +761,33 @@ export default function App() {
   const [impactPlaying, setImpactPlaying] = useState(false);
   const impactInterval = useRef(null);
 
-  // strength math
+  // COMPARE hub selection (real-hub dropdowns). Defaults: CK 148 / CK 157.
+  const [hub148Id, setHub148Id] = useState("h6");
+  const [hub157Id, setHub157Id] = useState("h7");
+
+  // strength math (legacy scale — still drives SIMULATION + slow-mo this pass)
   const spokeMult = parseInt(spokes) / 28;
   const rimMult   = rim === '27.5"' ? 1.06 : rim === '32"' ? 0.93 : 1.00;
   const offMult148 = 1 + offset * 0.014;
   const offMult157 = 1 + offset * 0.008;
-  // Spoke tension has a small effect on lateral strength (mostly durability),
-  // modeled as a gentle factor around the 120 kgf reference.
   const tensMult = 0.94 + (tension / 120) * 0.06;
   const cap157 = Math.round(BASE_157 * spokeMult * rimMult * offMult157 * tensMult);
   const cap148 = Math.round(BASE_148 * spokeMult * rimMult * offMult148 * tensMult);
-  // one-decimal versions for COMPARE-tab display (chart math uses the integers above)
-  const cap157d = (BASE_157 * spokeMult * rimMult * offMult157 * tensMult).toFixed(1);
-  const cap148d = (BASE_148 * spokeMult * rimMult * offMult148 * tensMult).toFixed(1);
+
+  // ── COMPARE: full Mode Matrix, driven by selected hubs + shared levers ──
+  // Combines hub geometry with the spoke-count and wheel-size levers (and tension).
+  const hub148 = HUBS_148.find(h => h.id === hub148Id) || HUBS_148[0];
+  const hub157 = HUBS_157.find(h => h.id === hub157Id) || HUBS_157[0];
+  const erd = WHEEL_ERDS[rim.replace('"', '')] ?? 600;
+  const Ns = parseInt(spokes);
+  const mm148 = useMemo(
+    () => modeMatrix(erd, hub148, 2.0, 2.0, tension, RIM_PROPS.EIL, RIM_PROPS.EIR, RIM_PROPS.GJ, RIM_PROPS.EA_rim, Ns, RIM_PROPS.modes),
+    [erd, hub148, tension, Ns]
+  );
+  const mm157 = useMemo(
+    () => modeMatrix(erd, hub157, 2.0, 2.0, tension, RIM_PROPS.EIL, RIM_PROPS.EIR, RIM_PROPS.GJ, RIM_PROPS.EA_rim, Ns, RIM_PROPS.modes),
+    [erd, hub157, tension, Ns]
+  );
 
   const geo148 = HUB_GEO["148"];
   const geo157 = HUB_GEO["157"];
@@ -892,25 +1030,47 @@ export default function App() {
         {tab === "COMPARE" && (
           <>
             <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-              {[{ geo: geo148, cap: cap148d, color: S.h148 }, { geo: geo157, cap: cap157d, color: S.h157 }].map(({ geo, cap, color }) => {
-                const symmetry = Math.round((geo.flangeL / geo.flangeR) * 100);
+              {[
+                { geo: geo148, mm: mm148, color: S.h148, hubs: HUBS_148, sel: hub148Id, setSel: setHub148Id, hub: hub148 },
+                { geo: geo157, mm: mm157, color: S.h157, hubs: HUBS_157, sel: hub157Id, setSel: setHub157Id, hub: hub157 },
+              ].map(({ geo, mm, color, hubs, sel, setSel, hub }) => {
+                const symmetry = Math.round(mm.ratio);
+                const fLat = mm.F_lat.toFixed(1);
                 return (
                 <div key={geo.label} style={{ flex: 1, background: BASE.surf, border: `1px solid ${BASE.bdr}`, borderTop: `3px solid ${color}`, borderRadius: "0 0 8px 8px" }}>
                   <div style={{ padding: "8px 12px 6px", borderBottom: `1px solid ${BASE.bdr}` }}>
                     <div style={{ fontFamily: "Space Grotesk, system-ui", fontWeight: 700, fontSize: 12, color }}>{geo.label}</div>
                     <div style={{ fontSize: 9, color: BASE.muted, marginTop: 1 }}>{geo.tag}</div>
                   </div>
-                  <div style={{ padding: "4px 4px 0" }}>
-                    <HubDiagram geo={geo} capKgf={cap} color={color} />
+                  {/* hub dropdown */}
+                  <div style={{ padding: "8px 12px 4px" }}>
+                    <div style={{ fontSize: 8.5, color: BASE.muted, letterSpacing: "0.05em", marginBottom: 3 }}>HUB</div>
+                    <select value={sel} onChange={e => setSel(e.target.value)} style={{
+                      width: "100%", fontFamily: "Space Mono, monospace", fontSize: 10.5,
+                      padding: "5px 7px", borderRadius: 6, cursor: "pointer",
+                      background: BASE.surfl, color: BASE.txt, border: `1px solid ${BASE.bdr}`,
+                    }}>
+                      {hubs.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+                    </select>
                   </div>
-                  {/* total flange width */}
+                  <div style={{ padding: "4px 4px 0" }}>
+                    <HubDiagram geo={geo} capKgf={fLat} color={color} />
+                  </div>
+                  {/* lateral strength (Mode Matrix F_lat) */}
                   <div style={{ padding: "8px 12px 6px", borderTop: `1px solid ${BASE.bdr}`, display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                    <span style={{ fontSize: 9, color: BASE.muted, letterSpacing: "0.05em" }}>TOTAL FLANGE WIDTH</span>
+                    <span style={{ fontSize: 9, color: BASE.muted, letterSpacing: "0.05em" }}>LATERAL STRENGTH</span>
                     <span style={{ fontFamily: "Space Mono, monospace", fontWeight: 700, fontSize: 13, color }}>
-                      {(geo.flangeL + geo.flangeR).toFixed(1)}<span style={{ fontSize: 8, color: BASE.muted }}> mm</span>
+                      {fLat}<span style={{ fontSize: 8, color: BASE.muted }}> kgf</span>
                     </span>
                   </div>
-                  {/* NDS/DS spoke symmetry */}
+                  {/* total flange width (from selected hub: nds + ds) */}
+                  <div style={{ padding: "0 12px 6px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                    <span style={{ fontSize: 9, color: BASE.muted, letterSpacing: "0.05em" }}>TOTAL FLANGE WIDTH</span>
+                    <span style={{ fontFamily: "Space Mono, monospace", fontWeight: 700, fontSize: 13, color }}>
+                      {(hub.nds + hub.ds).toFixed(1)}<span style={{ fontSize: 8, color: BASE.muted }}> mm</span>
+                    </span>
+                  </div>
+                  {/* NDS/DS spoke symmetry (Mode Matrix tension ratio) */}
                   <div style={{ padding: "0 12px 10px", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                     <span style={{ fontSize: 9, color: BASE.muted, letterSpacing: "0.05em" }}>
                       NDS/DS SPOKE SYMMETRY <span style={{ opacity: 0.7 }}>(100% = balanced)</span>
@@ -924,8 +1084,20 @@ export default function App() {
               })}
             </div>
 
-            {/* felt-vs-unfelt reminder (persistent, simple) */}
+            {/* symmetry → strength coupling note */}
             <div style={{ background: BASE.surfl, border: `1px solid ${BASE.bdr}`, borderLeft: `3px solid ${BASE.acc}`, borderRadius: 8, padding: "11px 14px", marginBottom: 12 }}>
+              <div style={{ fontSize: 11, color: BASE.txt, fontWeight: 600, fontFamily: "Space Grotesk, system-ui", marginBottom: 3 }}>
+                Symmetry drives strength
+              </div>
+              <p style={{ fontSize: 10.5, color: BASE.muted, margin: 0, lineHeight: 1.6 }}>
+                These numbers come from the full Mode Matrix model (Ford 2018) using each hub's real flange geometry.
+                NDS/DS symmetry and lateral strength move together — a more balanced wheel is a stronger one. The MTB
+                industry routinely overlooks this link; the physics doesn't.
+              </p>
+            </div>
+
+            {/* felt-vs-unfelt reminder */}
+            <div style={{ background: BASE.surfl, border: `1px solid ${BASE.bdr}`, borderLeft: `3px solid ${BASE.muted}`, borderRadius: 8, padding: "11px 14px", marginBottom: 12 }}>
               <div style={{ fontSize: 11, color: BASE.txt, fontWeight: 600, fontFamily: "Space Grotesk, system-ui", marginBottom: 3 }}>
                 Strength is insurance you can't feel
               </div>
@@ -1344,6 +1516,15 @@ export default function App() {
             </div>
           </>
         )}
+
+        {/* ── persistent caveat ── */}
+        <div style={{ marginTop: 18, paddingTop: 12, borderTop: `1px solid ${BASE.bdr}`, textAlign: "center" }}>
+          <p style={{ fontSize: 9, color: BASE.muted, opacity: 0.7, margin: 0, lineHeight: 1.6, maxWidth: 540, marginInline: "auto" }}>
+            This is an experimental lab tool built for illustration and discussion. The models are simplified and the
+            figures may contain errors — treat them as directional, not definitive. Always verify against
+            manufacturer data and a professional wheelbuilder before making decisions.
+          </p>
+        </div>
 
       </div>
     </div>
