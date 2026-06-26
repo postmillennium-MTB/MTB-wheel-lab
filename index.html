@@ -1,9 +1,33 @@
-import { useState, useMemo, useRef, useEffect } from "react";
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid,
-  ReferenceLine, ReferenceArea, ReferenceDot, ResponsiveContainer, Tooltip,
-  BarChart, Bar, Cell,
-} from "recharts";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wheel Strength Lab — Post Millennium Renaissance MTB</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0D1117; }
+    input[type=range] { cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" data-presets="react">
+    /* ── CDN globals ── */
+    const { useState, useMemo, useRef, useEffect } = React;
+    const {
+      LineChart, Line, XAxis, YAxis, CartesianGrid,
+      ReferenceLine, ReferenceArea, ReferenceDot, ResponsiveContainer, Tooltip,
+      BarChart, Bar, Cell,
+    } = Recharts;
+
 
 /* ════════════════════════════════════════════════════════════════════════════
    WHEEL STRENGTH LAB
@@ -701,7 +725,7 @@ function PixelFox({ frame }) {
 }
 
 // ─── root ─────────────────────────────────────────────────────────────────────
-export default function App() {
+function App() {
   // tab
   const [tab, setTab] = useState("COMPARE");
 
@@ -918,7 +942,6 @@ export default function App() {
   return (
     <div style={{ background: BASE.bg, color: BASE.txt, fontFamily: "system-ui, sans-serif", minHeight: "100vh", maxWidth: 720, margin: "0 auto" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap');
         * { box-sizing: border-box; }
         input[type=range] { cursor: pointer; }
         @keyframes foxTrot {
@@ -1530,3 +1553,10 @@ export default function App() {
     </div>
   );
 }
+
+    /* ── mount ── */
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(React.createElement(App));
+  </script>
+</body>
+</html>
