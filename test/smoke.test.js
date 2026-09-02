@@ -100,5 +100,38 @@ if (before === after) {
   fail(`hub cross-section did not redraw when a different hub was selected (still "${before}").`);
 }
 
-console.log("Smoke test passed: app mounted, every tab rendered, and the hub diagram follows the dropdown.");
+// The Rim offset dial must reach the COMPARE tab. It used to feed only the
+// SIMULATION/DEEP DIVE thresholds, so the headline 148-vs-157 comparison --
+// the default view -- ignored it completely.
+function compareReadout() {
+  const svg = dom.window.document.querySelector('svg[viewBox="0 0 280 224"]');
+  const angles = [...svg.querySelectorAll("text")]
+    .map((t) => t.textContent)
+    .filter((t) => /\u00B0$/.test(t))
+    .join(" ");
+  return { angles, text: root.textContent };
+}
+
+const sliders = [...dom.window.document.querySelectorAll('input[type="range"]')];
+const offsetSlider = sliders[sliders.length - 1];
+if (!offsetSlider || offsetSlider.max !== "4") {
+  fail(`expected the last range input on COMPARE to be the 0-4mm rim offset, got max="${offsetSlider && offsetSlider.max}".`);
+}
+
+const beforeOffset = compareReadout();
+const setRange = Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value").set;
+setRange.call(offsetSlider, "4");
+offsetSlider.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+await new Promise((resolve) => setTimeout(resolve, 150));
+if (caughtError) fail("runtime error after moving the rim offset slider.");
+
+const afterOffset = compareReadout();
+if (beforeOffset.angles === afterOffset.angles) {
+  fail(`rim offset did not change the bracing angles on the COMPARE tab (still "${beforeOffset.angles}").`);
+}
+if (beforeOffset.text === afterOffset.text) {
+  fail("rim offset did not change any figure on the COMPARE tab.");
+}
+
+console.log("Smoke test passed: app mounted, every tab rendered, the hub diagram follows the dropdown, and rim offset reaches COMPARE.");
 dom.window.close();

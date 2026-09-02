@@ -4,6 +4,8 @@ import {
   spokeAxialStiffness,
   computeWheelStrength,
   bracingAngleDeg,
+  applyRimOffset,
+  tightSideFirst,
   simulateRideLoad,
   countOverloadEvents,
   impactForceCurve,
@@ -186,6 +188,81 @@ describe("bracingAngleDeg", () => {
       Math.abs(fromLabels - r.ratio) < 0.01,
       `labels imply a ${fromLabels}% tension ratio but the model computed ${r.ratio}%`
     );
+  });
+});
+
+describe("rim offset", () => {
+  const at = (hub, offset) =>
+    computeWheelStrength(
+      600, tightSideFirst(applyRimOffset(hub, offset), 600, 28), 2, 2, 120,
+      PHYS_CONSTANTS.EIL, PHYS_CONSTANTS.EIR, PHYS_CONSTANTS.GJ, PHYS_CONSTANTS.EA_rim,
+      28, PHYS_CONSTANTS.modes
+    );
+  // The slider's range.
+  const OFFSETS = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4];
+
+  test("moves the drive side out and the non-drive side in", () => {
+    // An offset rim is drilled toward the non-drive side, so the drive-side
+    // spoke's lateral run grows and the non-drive side's shrinks.
+    const shifted = applyRimOffset({ nds: 36.3, ds: 24, pds: 57.4, pnds: 57.4 }, 3);
+    assert.equal(shifted.ds, 27);
+    assert.equal(shifted.nds, 33.3);
+  });
+
+  test("changes the COMPARE tab's strength figure for every hub", () => {
+    // This is the bug the wiring fixes: the offset dial used to reach only the
+    // SIMULATION thresholds, so COMPARE's lateral strength never moved.
+    for (const hub of [...HUBS_148, ...HUBS_157]) {
+      const none = at(hub, 0), full = at(hub, 4);
+      assert.notEqual(
+        none.F_lat.toFixed(2), full.F_lat.toFixed(2),
+        `${hub.name}: lateral strength did not respond to rim offset`
+      );
+    }
+  });
+
+  test("never reports a tension balance above 100%, even when it over-corrects", () => {
+    // Four hubs in the database are symmetric enough that the slider can push
+    // the imbalance past centre and open it up on the other side. Without
+    // tightSideFirst the model would read that as >100% balance and quote the
+    // lateral strength of the wrong spoke -- the one with margin to spare.
+    for (const hub of [...HUBS_148, ...HUBS_157]) {
+      for (const offset of OFFSETS) {
+        const r = at(hub, offset);
+        assert.ok(
+          r.ratio <= 100.0001,
+          `${hub.name} at ${offset}mm: tension balance came out at ${r.ratio}%`
+        );
+      }
+    }
+  });
+
+  test("over-correcting a near-symmetric hub makes it worse again, not better", () => {
+    // Hope Pro5 150 with 157 endcaps is 28.0 / 26.8 -- almost balanced already,
+    // so offset has nowhere useful to go and should show that.
+    const nearlySymmetric = { nds: 28, ds: 26.8, pds: 59, pnds: 57 };
+    const peak = Math.max(...OFFSETS.map((o) => at(nearlySymmetric, o).ratio));
+    assert.ok(at(nearlySymmetric, 4).ratio < peak, "4mm of offset should be past the optimum here");
+  });
+
+  test("orders by bracing angle, not by flange-to-centre distance", () => {
+    // Project 321's 157: 32/26 with a 60.5mm drive-side pull circle against a
+    // 55mm non-drive one. At 3mm of offset both flanges sit at 29mm, but the
+    // bigger pull circle makes the drive-side spoke shorter and its angle
+    // wider, so the drive side is still the one built tight.
+    const hub = { nds: 32, ds: 26, pds: 60.5, pnds: 55 };
+    const even = applyRimOffset(hub, 3);
+    assert.equal(even.ds, even.nds, "this case is only interesting when the offsets tie");
+    assert.ok(at(hub, 3).ratio <= 100.0001, `equal offsets, unequal flanges: got ${at(hub, 3).ratio}%`);
+  });
+
+  test("tightSideFirst swaps the flange diameters along with the offsets", () => {
+    // Swapping ds/nds without their matching flange diameters would silently
+    // pair each offset with the wrong pull-circle radius.
+    const swapped = tightSideFirst({ nds: 24, ds: 30, pds: 60, pnds: 49 }, 600, 28);
+    assert.deepEqual(swapped, { nds: 30, ds: 24, pds: 49, pnds: 60 });
+    const untouched = { nds: 36.3, ds: 24, pds: 57.4, pnds: 50 };
+    assert.deepEqual(tightSideFirst(untouched, 600, 28), untouched);
   });
 });
 
