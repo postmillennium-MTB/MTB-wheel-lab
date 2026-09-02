@@ -27,13 +27,14 @@ src/
   App.jsx                 main app: header, tabs, global controls
   index.jsx               entry point (mounts <ErrorBoundary><App/></ErrorBoundary>)
   components/
-    WheelDiagram.jsx       SVG hub/spoke strength diagram
+    WheelDiagram.jsx       MTB hub cross-section + rim-channel SVG diagram
     Section.jsx             collapsible panel
     ToggleGroup.jsx         segmented button control
     Slider.jsx               labeled range input
     MetricBar.jsx            paired 148/157 comparison bar
     RideTooltipContent.jsx  custom Recharts tooltip
     SymmetryTab.jsx          the SYMMETRY tab's interactive demo
+    AnnotationOverlay.jsx    SYMMETRY tab's self-playing callout tour
     PixelFox.jsx             the easter-egg pixel-art fox
     ErrorBoundary.jsx        NEW — catches crashes, shows a recoverable fallback
 ```
