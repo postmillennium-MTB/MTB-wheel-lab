@@ -67,6 +67,76 @@ describe("computeWheelStrength", () => {
   });
 });
 
+// Everything the SYMMETRY tab shows rests on these two properties. That tab
+// locks total flange width at 60mm and moves the split off-centre, so the
+// only thing changing is drive/non-drive balance. See the long comment above
+// lateralMarginMm() in SymmetryTab.jsx for the bug these tests were written
+// to catch: F_lat on its own is not a safe measure of what dish costs,
+// because K_lat rises steeply as the wheel is dished away from its buckling
+// tension, and at 36h/120kgf that rise was large enough to make a dished
+// wheel score as STRONGER than a symmetric one.
+describe("dish (the SYMMETRY tab's one variable)", () => {
+  // How far the rim moves sideways before the non-drive spokes reach zero
+  // tension. F_lat (kgf) = K_lat (kN/m) x this deflection, so it is
+  // recovered from the two figures computeWheelStrength already returns.
+  const lateralMarginMm = (r) => (r.F_lat * 9.81) / r.K_lat;
+  const dished = (offset, spokes, tension, rimDiameter) =>
+    computeWheelStrength(
+      rimDiameter, { nds: 30 + offset, ds: 30 - offset, pds: 58, pnds: 58 }, 2, 2, tension,
+      PHYS_CONSTANTS.EIL, PHYS_CONSTANTS.EIR, PHYS_CONSTANTS.GJ, PHYS_CONSTANTS.EA_rim,
+      spokes, PHYS_CONSTANTS.modes
+    );
+
+  // Every combination the app's own controls can actually produce.
+  const SPOKE_COUNTS = [28, 32, 36];
+  const RIM_DIAMETERS = [559, 600, 667]; // 27.5" / 29" / 32"
+  const TENSIONS = [80, 95, 110, 120, 125];
+
+  test("dishing the wheel always costs lateral margin, at every reachable setting", () => {
+    for (const spokes of SPOKE_COUNTS) {
+      for (const rim of RIM_DIAMETERS) {
+        for (const tension of TENSIONS) {
+          const symmetric = lateralMarginMm(dished(0, spokes, tension, rim));
+          let previous = symmetric;
+          for (let offset = 0.5; offset <= 15; offset += 0.5) {
+            const current = lateralMarginMm(dished(offset, spokes, tension, rim));
+            assert.ok(
+              current < previous,
+              `${spokes}h / ${rim}mm / ${tension}kgf: margin rose at ${offset}mm of dish (${previous} -> ${current})`
+            );
+            previous = current;
+          }
+        }
+      }
+    }
+  });
+
+  test("margin lost always exceeds tension balance lost, and is the same at every spoke count and tension", () => {
+    // Wheelbuilding rule of thumb the tab exists to show: an 8-point drop in
+    // tension balance costs MORE than 8% of lateral strength. And because
+    // this tab holds spokes, rim and tension fixed while it moves the dial,
+    // the answer must not depend on which of those the user picked.
+    for (const offset of [1, 2.5, 5, 7.5, 10, 15]) {
+      const seen = [];
+      for (const spokes of SPOKE_COUNTS) {
+        for (const tension of TENSIONS) {
+          const base = dished(0, spokes, tension, 600);
+          const now = dished(offset, spokes, tension, 600);
+          const balanceLost = 100 - now.ratio;
+          const marginLost = (1 - lateralMarginMm(now) / lateralMarginMm(base)) * 100;
+          assert.ok(
+            marginLost > balanceLost,
+            `${spokes}h / ${tension}kgf at ${offset}mm: lost ${marginLost.toFixed(1)}% of margin for a ${balanceLost.toFixed(1)}-point balance drop`
+          );
+          seen.push(marginLost);
+        }
+      }
+      const spread = Math.max(...seen) - Math.min(...seen);
+      assert.ok(spread < 0.5, `at ${offset}mm of dish the loss varied by ${spread.toFixed(2)} points across spoke counts and tensions`);
+    }
+  });
+});
+
 describe("spokeAxialStiffness", () => {
   test("increases with spoke diameter", () => {
     assert.ok(spokeAxialStiffness(2.3) > spokeAxialStiffness(2.0));
