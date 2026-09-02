@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   spokeAxialStiffness,
   computeWheelStrength,
+  bracingAngleDeg,
   simulateRideLoad,
   countOverloadEvents,
   impactForceCurve,
@@ -134,6 +135,57 @@ describe("dish (the SYMMETRY tab's one variable)", () => {
       const spread = Math.max(...seen) - Math.min(...seen);
       assert.ok(spread < 0.5, `at ${offset}mm of dish the loss varied by ${spread.toFixed(2)} points across spoke counts and tensions`);
     }
+  });
+});
+
+describe("bracingAngleDeg", () => {
+  // The angle the COMPARE and SYMMETRY cross-sections quote. Measured against
+  // the in-plane spoke length, not the rim radius -- a 3-cross spoke runs a
+  // chord from the flange's pitch circle to the rim, which is shorter than the
+  // rim radius, so dividing by the rim radius understates every angle.
+  test("is larger than the naive rim-radius calculation, by a few percent", () => {
+    for (const offset of [20, 24, 30, 43]) {
+      const naive = (Math.atan(offset / 300) * 180) / Math.PI;
+      const real = bracingAngleDeg(600, offset, 57.4, 28);
+      assert.ok(real > naive, `${offset}mm: expected ${real} > ${naive}`);
+      assert.ok(real / naive < 1.1, `${offset}mm: ${real}/${naive} is too big a correction to be the chord effect`);
+    }
+  });
+
+  test("agrees with the angles the COMPARE tab used to hard-code, for that reference geometry", () => {
+    // HUB_GEOMETRY's illustrative 148 hub was 20mm DS / 37mm NDS, labelled
+    // 4.0 deg / 7.3 deg. Those were computed on this basis, which is why the
+    // live figures land in the same place rather than jumping when the
+    // diagram started following the dropdown.
+    assert.ok(Math.abs(bracingAngleDeg(600, 20, 57.4, 28) - 4.0) < 0.2);
+    assert.ok(Math.abs(bracingAngleDeg(600, 37, 57.4, 28) - 7.3) < 0.2);
+  });
+
+  test("responds to flange offset and to wheel size, in the right directions", () => {
+    // More flange offset = more bracing angle.
+    assert.ok(bracingAngleDeg(600, 30, 57.4, 28) > bracingAngleDeg(600, 22, 57.4, 28));
+    // A bigger wheel puts the rim further out, so the same hub braces worse.
+    assert.ok(bracingAngleDeg(667, 24, 57.4, 28) < bracingAngleDeg(559, 24, 57.4, 28));
+  });
+
+  test("matches the bracing angle computeWheelStrength uses internally", () => {
+    // The label on the diagram must describe the same wheel the strength
+    // figure beside it was computed from.
+    const hub = { nds: 36.3, ds: 24, pds: 57.4, pnds: 57.4 };
+    const r = computeWheelStrength(
+      600, hub, 2, 2, 100,
+      PHYS_CONSTANTS.EIL, PHYS_CONSTANTS.EIR, PHYS_CONSTANTS.GJ, PHYS_CONSTANTS.EA_rim,
+      28, PHYS_CONSTANTS.modes
+    );
+    // ratio is sin(DS angle) / sin(NDS angle) -- rebuild it from the labels.
+    const rad = (d) => (d * Math.PI) / 180;
+    const fromLabels =
+      (Math.sin(rad(bracingAngleDeg(600, hub.ds, hub.pds, 28))) /
+        Math.sin(rad(bracingAngleDeg(600, hub.nds, hub.pnds, 28)))) * 100;
+    assert.ok(
+      Math.abs(fromLabels - r.ratio) < 0.01,
+      `labels imply a ${fromLabels}% tension ratio but the model computed ${r.ratio}%`
+    );
   });
 });
 

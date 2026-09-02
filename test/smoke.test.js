@@ -60,5 +60,45 @@ for (const name of tabNames) {
   if (root.textContent.length === 0) fail(`#root emptied out after switching to the ${name} tab.`);
 }
 
-console.log("Smoke test passed: app mounted and every tab rendered without errors.");
+// The COMPARE tab's hub cross-section must redraw for the hub the user picks.
+// It used to be wired to a fixed illustrative geometry, so it drew the same
+// 37mm/20mm hub whatever the dropdown said -- while the strength figures
+// beside it, and the TOTAL FLANGE WIDTH readout directly below it, followed
+// the selection correctly. This checks the drawing actually moves.
+const compareTab = [...dom.window.document.querySelectorAll("button")]
+  .find((b) => b.textContent.trim() === "COMPARE");
+compareTab.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+await new Promise((resolve) => setTimeout(resolve, 150));
+
+// The dimension callouts are the "<n>mm" texts inside the first cross-section.
+function hubDimensions() {
+  const svg = dom.window.document.querySelector('svg[viewBox="0 0 280 224"]');
+  if (!svg) fail("could not find a hub cross-section SVG on the COMPARE tab.");
+  return [...svg.querySelectorAll("text")]
+    .map((t) => t.textContent)
+    .filter((t) => /mm$/.test(t))
+    .join(" ");
+}
+
+const hubSelect = dom.window.document.querySelector("select");
+if (!hubSelect) fail("could not find the hub dropdown on the COMPARE tab.");
+const options = [...hubSelect.querySelectorAll("option")].map((o) => o.value);
+if (options.length < 2) fail("hub dropdown has fewer than two options to compare.");
+
+const before = hubDimensions();
+// React tracks a controlled <select>'s value, so assigning to .value alone is
+// swallowed. Go through the prototype setter, then fire change, the same way
+// a real selection does.
+const setValue = Object.getOwnPropertyDescriptor(dom.window.HTMLSelectElement.prototype, "value").set;
+setValue.call(hubSelect, options[options.length - 1]);
+hubSelect.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+await new Promise((resolve) => setTimeout(resolve, 150));
+if (caughtError) fail("runtime error after changing the hub selection.");
+
+const after = hubDimensions();
+if (before === after) {
+  fail(`hub cross-section did not redraw when a different hub was selected (still "${before}").`);
+}
+
+console.log("Smoke test passed: app mounted, every tab rendered, and the hub diagram follows the dropdown.");
 dom.window.close();
