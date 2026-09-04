@@ -5,6 +5,18 @@ from `src/data.js`), run through `wheel-physics-core`'s validated `calc()`
 engine directly -- the same numbers the COMPARE tab shows, not a
 re-derivation.
 
+## Interactive explorer
+
+[`explorer.html`](./explorer.html) is a standalone page (no build step, no
+server -- open the file directly) that fits the same model live in the
+browser. Toggle betas on and off as chips; the standardized-coefficient
+chart and the predicted-vs-actual scatter both refit on every click, with
+a guardrail that stops `pcd_mean` and the `pcd_ds`/`pcd_nds` pair from
+being selected together (that combination makes the design matrix exactly
+singular -- `pcd_mean` is defined as their average, not independent data).
+It carries its own copy of the 30-hub dataset so it has no dependency on
+`wheel-physics-core` at view time.
+
 ## Model
 
 ```
