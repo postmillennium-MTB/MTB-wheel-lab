@@ -16,6 +16,39 @@ calculation crashed. This directory fixes that:
 - **`test/`** — automated regression tests (physics math + a full-app smoke test)
 - **`.github/workflows/test.yml`** — runs the tests on every push
 
+## Where the physics comes from
+
+The wheel-strength math itself doesn't live in this repo. It lives in a
+separate, shared repo —
+**[wheel-physics-core](https://github.com/postmillennium-MTB/wheel-physics-core)**
+— because this tool and its sibling, `wheel-comparison-widget2`, used to
+each carry their own hand-copied version of the same math, and those two
+copies had quietly drifted apart. wheel-physics-core exists so that can't
+happen again:
+
+- It holds Matthew Ford's original reference math, **written in Python**
+  (his `bike-wheel-calc` library, copied over unmodified — see that repo's
+  README for the full attribution).
+- It also publishes a **JS** (JavaScript — the programming language that
+  runs inside a web page, in the visitor's own browser, with no server
+  involved) port of that same math, hand-written to match the Python.
+- Every time that JS changes, an automated check called **CI**
+  (Continuous Integration — a script that runs by itself the moment code
+  is pushed, rather than only when a person remembers to run it) recomputes
+  the same numbers both ways — once in the real Python, once in the JS —
+  and fails loudly if they don't agree. That check is what "validated"
+  means here: not eyeballed once, but re-proven on every single change.
+
+This repo (and `wheel-comparison-widget2`) are each **plain HTML** — no
+server, nothing running behind the scenes. What they actually ship is the
+JS half: `physics.js` imports the already-checked JS engine straight from
+wheel-physics-core at build time (see `package.json`), so the Python never
+runs live and never needs to — by the time its JS port reaches a visitor's
+browser, wheel-physics-core's CI has already confirmed it matches the
+Python, line for line. `wheel-comparison-widget2` has no build step, so it
+keeps its own synced copy of that same engine file instead — the two tools
+end up running byte-identical math either way.
+
 ## Project layout
 
 ```
@@ -41,10 +74,13 @@ src/
 
 ## A note on code style in physics.js and App.jsx
 
-`physics.js`'s wheel-strength calculation (`computeWheelStrength`, based on
-Ford's Mode Matrix method) and the bulk of `App.jsx` are left in a dense,
-short-variable-name style on purpose, rather than fully rewritten with
-descriptive names throughout. Two reasons:
+`physics.js`'s remaining local math (`bracingAngleDeg`, `applyRimOffset`,
+`tightSideFirst`, and the ride-simulation/fatigue helpers) and the bulk of
+`App.jsx` are left in a dense, short-variable-name style on purpose, rather
+than fully rewritten with descriptive names throughout. (The actual
+strength/stiffness calculation, `computeWheelStrength`, isn't local code to
+style at all anymore — it's imported from wheel-physics-core; see "Where
+the physics comes from" above.) Two reasons:
 
 1. **Risk.** Hand-renaming variables inside a 20-term trigonometric
    expression is exactly the kind of edit that can silently introduce a
@@ -97,3 +133,12 @@ For a major-version jump (e.g. Recharts 2 → 3, which changed internal
 APIs), budget time for actual visual testing in a browser — the automated
 tests here catch crashes and math regressions, not "does this chart still
 look right."
+
+`wheel-physics-core` is pinned differently from the other three — not to a
+version number, but to an exact commit
+(`github:postmillennium-MTB/wheel-physics-core#<sha>` in `package.json`),
+so a build today and a build next year pull the exact same math unless
+someone deliberately updates that pin. To pick up a change made in
+wheel-physics-core, update that commit SHA by hand — `npm update` alone
+won't move it — then re-run `npm run test:all` the same as for any other
+dependency bump.
