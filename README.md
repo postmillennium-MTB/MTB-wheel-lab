@@ -75,6 +75,20 @@ Python, line for line. `wheel-comparison-widget2` has no build step, so it
 keeps its own synced copy of that same engine file instead — the two tools
 end up running byte-identical math either way.
 
+### Does the ratio change with wheel size (27.5" vs 29")?
+
+Yes, but only very slightly — wheel size is a minor, second-order effect on this particular metric. Running the actual engine across all four wheel sizes on a few different hubs:
+
+| Hub | 26" | 27.5" | 29" | 32" | spread |
+|---|---|---|---|---|---|
+| CK 157 SB Centerlock | 71.85% | 71.82% | 71.77% | 71.72% | 0.14 pp |
+| Project 321 G3 157 SB | 81.68% | 81.66% | 81.63% | 81.58% | 0.11 pp |
+| DMR Zone 148 | 55.64% | 55.61% | 55.57% | 55.51% | 0.14 pp |
+
+So going from 27.5" to 29" moves the ratio by roughly 0.05 percentage points — essentially nothing next to the tens-of-points spread you see just from switching hubs. The mechanism is real (larger wheel radius → both spoke bracing angles shrink slightly, and they don't shrink at exactly the same rate when the two flanges differ in offset or PCD, so the ratio drifts a hair), but it's swamped by hub geometry.
+
+Worth noting: wheel size matters much more for the other three metrics — K_lat, F_lat, buckling tension — because those depend on absolute spoke length and rim stiffness, not just the angle ratio. The README's line about "hub geometry and wheel size matter as much as axle width" is specifically about K_lat, not tension balance — it doesn't apply here with the same force.
+
 ## Project layout
 
 ```
