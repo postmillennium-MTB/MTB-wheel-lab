@@ -103,7 +103,7 @@
   .dek {
     color: var(--ink-muted);
     font-size: 15px;
-    max-width: 62ch;
+    max-width: 66ch;
     margin: 0;
   }
   .dek code {
@@ -130,11 +130,19 @@
     align-items: baseline;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 14px;
+    margin-bottom: 4px;
     flex-wrap: wrap;
   }
   .control-title { font-weight: 600; font-size: 14.5px; }
   .control-hint { color: var(--ink-faint); font-size: 12.5px; }
+  .group-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--ink-faint);
+    margin: 14px 0 8px;
+  }
+  .group-label:first-of-type { margin-top: 12px; }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
   .chip {
     display: flex;
@@ -169,13 +177,25 @@
     background: var(--ink-faint);
   }
   .chip[data-on="true"] .chip-swatch { background: var(--accent-neg-fill); }
+  .chip-tier {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.04em;
+    padding: 0 4px;
+    border-radius: 3px;
+    margin-left: 5px;
+    vertical-align: 1px;
+  }
+  .chip-tier.est { background: color-mix(in srgb, var(--accent-pos-fill) 20%, transparent); color: var(--accent-pos); }
+  .chip-tier.ver { background: color-mix(in srgb, var(--accent-neg-fill) 16%, transparent); color: var(--accent-neg); }
   .guard-note {
-    margin-top: 12px;
+    margin-top: 14px;
     font-size: 12px;
     color: var(--ink-faint);
     border-top: 1px dashed var(--border);
     padding-top: 10px;
   }
+  .guard-note strong { color: var(--ink-muted); }
 
   /* ---- KPI row ---- */
   .kpis {
@@ -230,6 +250,12 @@
     height: 100%; min-height: 220px;
     color: var(--ink-faint); font-size: 13px; text-align: center; padding: 20px;
   }
+  .legend-row {
+    display: flex; gap: 16px; margin-top: 10px; font-size: 11px; color: var(--ink-faint);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .legend-row span { display: inline-flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 
   /* ---- dataset table ---- */
   details.panel { padding: 4px 22px 18px; }
@@ -246,7 +272,7 @@
   summary::-webkit-details-marker { display: none; }
   summary .car { color: var(--ink-faint); font-family: 'IBM Plex Mono', monospace; font-size: 12px; transition: transform 0.15s ease; }
   details[open] summary .car { transform: rotate(90deg); }
-  .table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }
+  .table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; max-height: 480px; overflow-y: auto; }
   table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
   thead th {
     text-align: right;
@@ -260,7 +286,7 @@
     white-space: nowrap;
     position: sticky; top: 0;
   }
-  thead th:first-child, thead th:nth-child(2) { text-align: left; }
+  thead th:first-child, thead th:nth-child(2), thead th:nth-child(3) { text-align: left; }
   tbody td {
     padding: 7px 12px;
     text-align: right;
@@ -269,19 +295,13 @@
     font-family: 'IBM Plex Mono', monospace;
     font-variant-numeric: tabular-nums;
   }
-  tbody td:first-child { font-family: 'IBM Plex Sans', sans-serif; text-align: left; color: var(--ink-faint); }
-  tbody td:nth-child(2) { font-family: 'IBM Plex Sans', sans-serif; text-align: left; }
+  tbody td:first-child, tbody td:nth-child(2), tbody td:nth-child(3) { font-family: 'IBM Plex Sans', sans-serif; text-align: left; }
+  tbody td:first-child { color: var(--ink-faint); }
   tbody tr:nth-child(even) { background: color-mix(in srgb, var(--surface-2) 45%, transparent); }
-  .std-tag {
-    display: inline-block;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 10px;
-    color: var(--ink-faint);
-    background: var(--surface-2);
-    border-radius: 4px;
-    padding: 1px 6px;
-    margin-left: 8px;
-  }
+
+  /* ---- rim catalog table ---- */
+  .rim-catalog { margin-top: 14px; }
+  .rim-catalog table { font-size: 12px; }
 
   footer {
     margin-top: 26px;
@@ -296,12 +316,13 @@
 <body>
 <div class="wrap">
   <header>
-    <p class="eyebrow">MTB-wheel-lab &middot; 30-hub catalogue &middot; wheel-physics-core</p>
+    <p class="eyebrow">MTB-wheel-lab &middot; 30 hubs &times; 5 rims &middot; wheel-physics-core</p>
     <h1>Lateral Strength Regressor</h1>
     <p class="dek">
       Y = <code>F_lat</code> (kgf), the first-spoke-slack lateral strength from wheel-physics-core's
-      Mode Matrix engine, fixed at 29&Prime; / 32h / 2.0mm spokes / 100kgf drive-side tension across
-      all 30 cataloged hubs. Toggle betas on and off below &mdash; the fit refits live.
+      Mode Matrix engine, fixed at 29&Prime; / 32h / 2.0mm spokes / 100kgf drive-side tension. Each of
+      30 cataloged hubs is paired with each of 5 real rims (150 rows total) &mdash; toggle betas on and
+      off below and the fit refits live.
     </p>
   </header>
 
@@ -310,7 +331,10 @@
       <span class="control-title">Betas</span>
       <span class="control-hint" id="dfHint">click to add / remove &middot; refits instantly</span>
     </div>
-    <div class="chips" id="chips"></div>
+    <div class="group-label">Hub geometry</div>
+    <div class="chips" id="chipsHub"></div>
+    <div class="group-label">Rim <span class="chip-tier est">EST</span> = estimated stiffness scaling, not measured &middot; <span class="chip-tier ver">VER</span> = published spec</div>
+    <div class="chips" id="chipsRim"></div>
     <p class="guard-note" id="guardNote"></p>
   </section>
 
@@ -324,13 +348,30 @@
     </div>
     <div class="panel chart-card">
       <div class="chart-title">Predicted vs. actual F_lat</div>
-      <div class="chart-caption">dashed line = perfect fit (y = x)</div>
+      <div class="chart-caption">dashed line = perfect fit (y = x) &middot; colored by rim material</div>
       <div class="chart-svg-wrap" id="scatterChart"></div>
+      <div class="legend-row">
+        <span><span class="legend-dot" style="background:var(--accent-neg-fill)"></span>alloy</span>
+        <span><span class="legend-dot" style="background:var(--accent-pos-fill)"></span>carbon</span>
+      </div>
     </div>
   </div>
 
   <details class="panel">
-    <summary>30-hub dataset<span class="car">&#9656;</span></summary>
+    <summary>Rim catalog &amp; sourcing<span class="car">&#9656;</span></summary>
+    <p style="font-size:12.5px;color:var(--ink-muted);margin:0 0 12px;">
+      Internal width, depth and material are verified against manufacturer/retailer spec pages.
+      <code>rim_stiffness_index</code> is this tool's own estimate &mdash; no manufacturer publishes
+      bending/torsional stiffness in the units Ford's model needs, so it can't be looked up. See the
+      analysis README for the full scaling method.
+    </p>
+    <div class="table-scroll rim-catalog">
+      <table id="rimTable"></table>
+    </div>
+  </details>
+
+  <details class="panel">
+    <summary>150-row dataset (30 hubs &times; 5 rims)<span class="car">&#9656;</span></summary>
     <div class="table-scroll">
       <table id="dataTable"></table>
     </div>
@@ -348,59 +389,184 @@
   "use strict";
 
   // ---------------------------------------------------------------------
-  // Dataset: 30 hubs, precomputed via wheel-physics-core's calc() at the
-  // fixed defaults noted in the header. Mirrors dataset.json in this folder.
+  // Dataset: 30 hubs x 5 rims = 150 rows, precomputed via
+  // wheel-physics-core's calc() at the fixed defaults noted in the header,
+  // with each rim's own (estimated) stiffness constants. Mirrors
+  // dataset.json in this folder. See README for the rim catalog's sourcing
+  // and the rim_stiffness_index scaling method.
   // ---------------------------------------------------------------------
   const DATA = [
-    {id:"h1",name:"Onyx 148 MFU",F_lat:17.617357707005265,tension_ratio:62.39573377771944,flange_width:59.82,pcd_mean:50,pcd_ds:50,pcd_nds:50,standard_157:0},
-    {id:"h5",name:"Spank Hex J-Type Boost R148",F_lat:20.10983769246704,tension_ratio:68.04057655366462,flange_width:62,pcd_mean:61,pcd_ds:64,pcd_nds:58,standard_157:0},
-    {id:"h6",name:"CK 148x12 Centerlock Rear",F_lat:18.991682496600827,tension_ratio:66.38374144819737,flange_width:60.3,pcd_mean:57.4,pcd_ds:57.4,pcd_nds:57.4,standard_157:0},
-    {id:"h8",name:"Project 321 G3 148x12",F_lat:17.435488950177195,tension_ratio:69.14049497439005,flange_width:54,pcd_mean:57.75,pcd_ds:60.5,pcd_nds:55,standard_157:0},
-    {id:"h10",name:"Hydra Mountain 6-Bolt 148",F_lat:19.81950490048289,tension_ratio:66.1488440530334,flange_width:63,pcd_mean:59,pcd_ds:60,pcd_nds:58,standard_157:0},
-    {id:"h12",name:"I9 Hydra Centerlock 148",F_lat:18.5744073220057,tension_ratio:62.195379717065414,flange_width:63,pcd_mean:54.5,pcd_ds:60,pcd_nds:49,standard_157:0},
-    {id:"h14",name:"I9 1/1 Mountain 6-Bolt 148",F_lat:17.814084330072255,tension_ratio:62.509208227925804,flange_width:60,pcd_mean:59,pcd_ds:60,pcd_nds:58,standard_157:0},
-    {id:"h15",name:"Hope Pro5 148 6-bolt",F_lat:17.687585123878492,tension_ratio:64.8876510594695,flange_width:57.6,pcd_mean:58,pcd_ds:59,pcd_nds:57,standard_157:0},
-    {id:"h17",name:"Erase MTB IS 148x12 V2",F_lat:19.79347915257552,tension_ratio:66.28181119236984,flange_width:63,pcd_mean:53,pcd_ds:56,pcd_nds:50,standard_157:0},
-    {id:"h20",name:"Hadley 148x12",F_lat:17.701998724396955,tension_ratio:62.22811733761836,flange_width:60,pcd_mean:55.5,pcd_ds:59,pcd_nds:52,standard_157:0},
-    {id:"h21",name:"OneUp Rear Hub 148x12",F_lat:17.483521641170693,tension_ratio:60.70312297518087,flange_width:61,pcd_mean:50,pcd_ds:48,pcd_nds:52,standard_157:0},
-    {id:"h23",name:"KOM Xeno Rear Boost 148x12",F_lat:19.0795390157948,tension_ratio:77.20674343575655,flange_width:54,pcd_mean:46,pcd_ds:46,pcd_nds:46,standard_157:0},
-    {id:"h27",name:"DMR Zone 148 Boost Centerlock",F_lat:15.580794167344463,tension_ratio:55.565944905695595,flange_width:59,pcd_mean:56,pcd_ds:56,pcd_nds:56,standard_157:0},
-    {id:"h28",name:"DT Swiss 350 148 6-bolt",F_lat:18.070115912716474,tension_ratio:63.747036519897115,flange_width:59.9,pcd_mean:55,pcd_ds:52,pcd_nds:58,standard_157:0},
-    {id:"h30",name:"e*thirteen Sidekick 148 Boost",F_lat:15.619855846558108,tension_ratio:55.567140697488284,flange_width:59,pcd_mean:60,pcd_ds:60,pcd_nds:60,standard_157:0},
-    {id:"h2",name:"Onyx 150/157",F_lat:21.61292499797542,tension_ratio:66.57674812516349,flange_width:68.82,pcd_mean:50,pcd_ds:50,pcd_nds:50,standard_157:1},
-    {id:"h3",name:"Onyx 150/157 Vesper",F_lat:21.17320732229627,tension_ratio:65.76242119460615,flange_width:68.37,pcd_mean:46,pcd_ds:50,pcd_nds:42,standard_157:1},
-    {id:"h4",name:"Spank Hex J-Type R150/157",F_lat:24.9114264102659,tension_ratio:75.18295589119303,flange_width:69,pcd_mean:61,pcd_ds:64,pcd_nds:58,standard_157:1},
-    {id:"h7",name:"CK 157 SB Centerlock Rear",F_lat:23.630614218226984,tension_ratio:71.77352665731928,flange_width:69.1,pcd_mean:57.4,pcd_ds:57.4,pcd_nds:57.4,standard_157:1},
-    {id:"h9",name:"Project 321 G3 157 SB",F_lat:22.412300678304796,tension_ratio:81.62535318202305,flange_width:58,pcd_mean:57.75,pcd_ds:60.5,pcd_nds:55,standard_157:1},
-    {id:"h11",name:"I9 Hydra 6-Bolt 150/157",F_lat:23.71387779811592,tension_ratio:71.125251012666,flange_width:70,pcd_mean:59,pcd_ds:60,pcd_nds:58,standard_157:1},
-    {id:"h13",name:"I9 Hydra Centerlock 157 SB",F_lat:22.06621180892488,tension_ratio:65.85215907123457,flange_width:71,pcd_mean:54.5,pcd_ds:60,pcd_nds:49,standard_157:1},
-    {id:"h16",name:"Hope Pro5 157 SB 6-bolt",F_lat:21.721632358249863,tension_ratio:68.56132818624782,flange_width:66.6,pcd_mean:58,pcd_ds:59,pcd_nds:57,standard_157:1},
-    {id:"h18",name:"Erase MTB IS 157x12 V2",F_lat:23.842920527743164,tension_ratio:69.97376016798655,flange_width:72,pcd_mean:53,pcd_ds:56,pcd_nds:50,standard_157:1},
-    {id:"h19",name:"Hadley 150/157",F_lat:21.78847358515776,tension_ratio:66.6145987932362,flange_width:69,pcd_mean:59,pcd_ds:59,pcd_nds:59,standard_157:1},
-    {id:"h22",name:"OneUp Rear Hub 157x12",F_lat:21.45687280226858,tension_ratio:74.33662298497184,flange_width:61,pcd_mean:50.25,pcd_ds:48,pcd_nds:52.5,standard_157:1},
-    {id:"h24",name:"KOM Xeno Rear Super Boost 157",F_lat:24.03187030521765,tension_ratio:80.19035399516025,flange_width:63,pcd_mean:46,pcd_ds:46,pcd_nds:46,standard_157:1},
-    {id:"h26",name:"DMR Zone 157 SB Centerlock",F_lat:19.137326934699637,tension_ratio:61.32659279105677,flange_width:66,pcd_mean:56,pcd_ds:56,pcd_nds:56,standard_157:1},
-    {id:"h29",name:"DT Swiss 350 157 6-bolt",F_lat:22.16572699648829,tension_ratio:67.89890442500254,flange_width:69,pcd_mean:55.25,pcd_ds:50.5,pcd_nds:60,standard_157:1},
-    {id:"h31",name:"e*thirteen Sidekick Pro 157 SB",F_lat:19.396710747273573,tension_ratio:60.379354427594066,flange_width:68,pcd_mean:60,pcd_ds:60,pcd_nds:60,standard_157:1},
+    {id:'h1_r1',hub:'Onyx 148 MFU',rim:'DT Swiss XM 481',F_lat:17.617357707005265,tension_ratio:62.39573377771944,flange_width:59.82,pcd_mean:50,pcd_ds:50,pcd_nds:50,standard_157:0,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h1_r2',hub:'Onyx 148 MFU',rim:'Race Face ARC Offset 30',F_lat:17.209008431386817,tension_ratio:62.39573377771944,flange_width:59.82,pcd_mean:50,pcd_ds:50,pcd_nds:50,standard_157:0,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h1_r3',hub:'Onyx 148 MFU',rim:"Stan's Flow S2",F_lat:16.426347782321738,tension_ratio:62.39573377771944,flange_width:59.82,pcd_mean:50,pcd_ds:50,pcd_nds:50,standard_157:0,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h1_r4',hub:'Onyx 148 MFU',rim:'We Are One Convert',F_lat:21.300030635019148,tension_ratio:62.39573377771944,flange_width:59.82,pcd_mean:50,pcd_ds:50,pcd_nds:50,standard_157:0,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h1_r5',hub:'Onyx 148 MFU',rim:'ENVE M730',F_lat:22.072609585675274,tension_ratio:62.39573377771944,flange_width:59.82,pcd_mean:50,pcd_ds:50,pcd_nds:50,standard_157:0,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h5_r1',hub:'Spank Hex J-Type Boost R148',rim:'DT Swiss XM 481',F_lat:20.10983769246704,tension_ratio:68.04057655366462,flange_width:62,pcd_mean:61,pcd_ds:64,pcd_nds:58,standard_157:0,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h5_r2',hub:'Spank Hex J-Type Boost R148',rim:'Race Face ARC Offset 30',F_lat:19.645974766056458,tension_ratio:68.04057655366462,flange_width:62,pcd_mean:61,pcd_ds:64,pcd_nds:58,standard_157:0,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h5_r3',hub:'Spank Hex J-Type Boost R148',rim:"Stan's Flow S2",F_lat:18.757662900107018,tension_ratio:68.04057655366462,flange_width:62,pcd_mean:61,pcd_ds:64,pcd_nds:58,standard_157:0,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h5_r4',hub:'Spank Hex J-Type Boost R148',rim:'We Are One Convert',F_lat:24.30587752967697,tension_ratio:68.04057655366462,flange_width:62,pcd_mean:61,pcd_ds:64,pcd_nds:58,standard_157:0,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h5_r5',hub:'Spank Hex J-Type Boost R148',rim:'ENVE M730',F_lat:25.188458471071016,tension_ratio:68.04057655366462,flange_width:62,pcd_mean:61,pcd_ds:64,pcd_nds:58,standard_157:0,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h6_r1',hub:'CK 148x12 Centerlock Rear',rim:'DT Swiss XM 481',F_lat:18.991682496600827,tension_ratio:66.38374144819737,flange_width:60.3,pcd_mean:57.4,pcd_ds:57.4,pcd_nds:57.4,standard_157:0,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h6_r2',hub:'CK 148x12 Centerlock Rear',rim:'Race Face ARC Offset 30',F_lat:18.543456146092716,tension_ratio:66.38374144819737,flange_width:60.3,pcd_mean:57.4,pcd_ds:57.4,pcd_nds:57.4,standard_157:0,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h6_r3',hub:'CK 148x12 Centerlock Rear',rim:"Stan's Flow S2",F_lat:17.6840005553119,tension_ratio:66.38374144819737,flange_width:60.3,pcd_mean:57.4,pcd_ds:57.4,pcd_nds:57.4,standard_157:0,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h6_r4',hub:'CK 148x12 Centerlock Rear',rim:'We Are One Convert',F_lat:23.028912663922398,tension_ratio:66.38374144819737,flange_width:60.3,pcd_mean:57.4,pcd_ds:57.4,pcd_nds:57.4,standard_157:0,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h6_r5',hub:'CK 148x12 Centerlock Rear',rim:'ENVE M730',F_lat:23.87474935291515,tension_ratio:66.38374144819737,flange_width:60.3,pcd_mean:57.4,pcd_ds:57.4,pcd_nds:57.4,standard_157:0,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h8_r1',hub:'Project 321 G3 148x12',rim:'DT Swiss XM 481',F_lat:17.435488950177195,tension_ratio:69.14049497439005,flange_width:54,pcd_mean:57.75,pcd_ds:60.5,pcd_nds:55,standard_157:0,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h8_r2',hub:'Project 321 G3 148x12',rim:'Race Face ARC Offset 30',F_lat:16.937172992059658,tension_ratio:69.14049497439005,flange_width:54,pcd_mean:57.75,pcd_ds:60.5,pcd_nds:55,standard_157:0,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h8_r3',hub:'Project 321 G3 148x12',rim:"Stan's Flow S2",F_lat:15.97039123243166,tension_ratio:69.14049497439005,flange_width:54,pcd_mean:57.75,pcd_ds:60.5,pcd_nds:55,standard_157:0,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h8_r4',hub:'Project 321 G3 148x12',rim:'We Are One Convert',F_lat:21.77328569132271,tension_ratio:69.14049497439005,flange_width:54,pcd_mean:57.75,pcd_ds:60.5,pcd_nds:55,standard_157:0,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h8_r5',hub:'Project 321 G3 148x12',rim:'ENVE M730',F_lat:22.657280336931123,tension_ratio:69.14049497439005,flange_width:54,pcd_mean:57.75,pcd_ds:60.5,pcd_nds:55,standard_157:0,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h10_r1',hub:'Hydra Mountain 6-Bolt 148',rim:'DT Swiss XM 481',F_lat:19.81950490048289,tension_ratio:66.1488440530334,flange_width:63,pcd_mean:59,pcd_ds:60,pcd_nds:58,standard_157:0,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h10_r2',hub:'Hydra Mountain 6-Bolt 148',rim:'Race Face ARC Offset 30',F_lat:19.376786506537435,tension_ratio:66.1488440530334,flange_width:63,pcd_mean:59,pcd_ds:60,pcd_nds:58,standard_157:0,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h10_r3',hub:'Hydra Mountain 6-Bolt 148',rim:"Stan's Flow S2",F_lat:18.530032401201158,tension_ratio:66.1488440530334,flange_width:63,pcd_mean:59,pcd_ds:60,pcd_nds:58,standard_157:0,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h10_r4',hub:'Hydra Mountain 6-Bolt 148',rim:'We Are One Convert',F_lat:23.841027296677293,tension_ratio:66.1488440530334,flange_width:63,pcd_mean:59,pcd_ds:60,pcd_nds:58,standard_157:0,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h10_r5',hub:'Hydra Mountain 6-Bolt 148',rim:'ENVE M730',F_lat:24.6903316712004,tension_ratio:66.1488440530334,flange_width:63,pcd_mean:59,pcd_ds:60,pcd_nds:58,standard_157:0,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h12_r1',hub:'I9 Hydra Centerlock 148',rim:'DT Swiss XM 481',F_lat:18.5744073220057,tension_ratio:62.195379717065414,flange_width:63,pcd_mean:54.5,pcd_ds:60,pcd_nds:49,standard_157:0,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h12_r2',hub:'I9 Hydra Centerlock 148',rim:'Race Face ARC Offset 30',F_lat:18.170307175026114,tension_ratio:62.195379717065414,flange_width:63,pcd_mean:54.5,pcd_ds:60,pcd_nds:49,standard_157:0,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h12_r3',hub:'I9 Hydra Centerlock 148',rim:"Stan's Flow S2",F_lat:17.398041748546923,tension_ratio:62.195379717065414,flange_width:63,pcd_mean:54.5,pcd_ds:60,pcd_nds:49,standard_157:0,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h12_r4',hub:'I9 Hydra Centerlock 148',rim:'We Are One Convert',F_lat:22.254405356850178,tension_ratio:62.195379717065414,flange_width:63,pcd_mean:54.5,pcd_ds:60,pcd_nds:49,standard_157:0,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h12_r5',hub:'I9 Hydra Centerlock 148',rim:'ENVE M730',F_lat:23.033513419450227,tension_ratio:62.195379717065414,flange_width:63,pcd_mean:54.5,pcd_ds:60,pcd_nds:49,standard_157:0,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h14_r1',hub:'I9 1/1 Mountain 6-Bolt 148',rim:'DT Swiss XM 481',F_lat:17.814084330072255,tension_ratio:62.509208227925804,flange_width:60,pcd_mean:59,pcd_ds:60,pcd_nds:58,standard_157:0,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h14_r2',hub:'I9 1/1 Mountain 6-Bolt 148',rim:'Race Face ARC Offset 30',F_lat:17.4061829388824,tension_ratio:62.509208227925804,flange_width:60,pcd_mean:59,pcd_ds:60,pcd_nds:58,standard_157:0,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h14_r3',hub:'I9 1/1 Mountain 6-Bolt 148',rim:"Stan's Flow S2",F_lat:16.624848765982055,tension_ratio:62.509208227925804,flange_width:60,pcd_mean:59,pcd_ds:60,pcd_nds:58,standard_157:0,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h14_r4',hub:'I9 1/1 Mountain 6-Bolt 148',rim:'We Are One Convert',F_lat:21.49989467494572,tension_ratio:62.509208227925804,flange_width:60,pcd_mean:59,pcd_ds:60,pcd_nds:58,standard_157:0,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h14_r5',hub:'I9 1/1 Mountain 6-Bolt 148',rim:'ENVE M730',F_lat:22.27450098582394,tension_ratio:62.509208227925804,flange_width:60,pcd_mean:59,pcd_ds:60,pcd_nds:58,standard_157:0,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h15_r1',hub:'Hope Pro5 148 6-bolt',rim:'DT Swiss XM 481',F_lat:17.687585123878492,tension_ratio:64.8876510594695,flange_width:57.6,pcd_mean:58,pcd_ds:59,pcd_nds:57,standard_157:0,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h15_r2',hub:'Hope Pro5 148 6-bolt',rim:'Race Face ARC Offset 30',F_lat:17.251019965913702,tension_ratio:64.8876510594695,flange_width:57.6,pcd_mean:58,pcd_ds:59,pcd_nds:57,standard_157:0,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h15_r3',hub:'Hope Pro5 148 6-bolt',rim:"Stan's Flow S2",F_lat:16.41170161135442,tension_ratio:64.8876510594695,flange_width:57.6,pcd_mean:58,pcd_ds:59,pcd_nds:57,standard_157:0,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h15_r4',hub:'Hope Pro5 148 6-bolt',rim:'We Are One Convert',F_lat:21.58698888014785,tension_ratio:64.8876510594695,flange_width:57.6,pcd_mean:58,pcd_ds:59,pcd_nds:57,standard_157:0,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h15_r5',hub:'Hope Pro5 148 6-bolt',rim:'ENVE M730',F_lat:22.39809122255757,tension_ratio:64.8876510594695,flange_width:57.6,pcd_mean:58,pcd_ds:59,pcd_nds:57,standard_157:0,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h17_r1',hub:'Erase MTB IS 148x12 V2',rim:'DT Swiss XM 481',F_lat:19.79347915257552,tension_ratio:66.28181119236984,flange_width:63,pcd_mean:53,pcd_ds:56,pcd_nds:50,standard_157:0,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h17_r2',hub:'Erase MTB IS 148x12 V2',rim:'Race Face ARC Offset 30',F_lat:19.34793814689992,tension_ratio:66.28181119236984,flange_width:63,pcd_mean:53,pcd_ds:56,pcd_nds:50,standard_157:0,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h17_r3',hub:'Erase MTB IS 148x12 V2',rim:"Stan's Flow S2",F_lat:18.495520735412207,tension_ratio:66.28181119236984,flange_width:63,pcd_mean:53,pcd_ds:56,pcd_nds:50,standard_157:0,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h17_r4',hub:'Erase MTB IS 148x12 V2',rim:'We Are One Convert',F_lat:23.83638989717248,tension_ratio:66.28181119236984,flange_width:63,pcd_mean:53,pcd_ds:56,pcd_nds:50,standard_157:0,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h17_r5',hub:'Erase MTB IS 148x12 V2',rim:'ENVE M730',F_lat:24.689336598206427,tension_ratio:66.28181119236984,flange_width:63,pcd_mean:53,pcd_ds:56,pcd_nds:50,standard_157:0,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h20_r1',hub:'Hadley 148x12',rim:'DT Swiss XM 481',F_lat:17.701998724396955,tension_ratio:62.22811733761836,flange_width:60,pcd_mean:55.5,pcd_ds:59,pcd_nds:52,standard_157:0,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h20_r2',hub:'Hadley 148x12',rim:'Race Face ARC Offset 30',F_lat:17.295916953893116,tension_ratio:62.22811733761836,flange_width:60,pcd_mean:55.5,pcd_ds:59,pcd_nds:52,standard_157:0,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h20_r3',hub:'Hadley 148x12',rim:"Stan's Flow S2",F_lat:16.51797721148871,tension_ratio:62.22811733761836,flange_width:60,pcd_mean:55.5,pcd_ds:59,pcd_nds:52,standard_157:0,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h20_r4',hub:'Hadley 148x12',rim:'We Are One Convert',F_lat:21.36993133988194,tension_ratio:62.22811733761836,flange_width:60,pcd_mean:55.5,pcd_ds:59,pcd_nds:52,standard_157:0,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h20_r5',hub:'Hadley 148x12',rim:'ENVE M730',F_lat:22.140513133043626,tension_ratio:62.22811733761836,flange_width:60,pcd_mean:55.5,pcd_ds:59,pcd_nds:52,standard_157:0,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h21_r1',hub:'OneUp Rear Hub 148x12',rim:'DT Swiss XM 481',F_lat:17.483521641170693,tension_ratio:60.70312297518087,flange_width:61,pcd_mean:50,pcd_ds:48,pcd_nds:52,standard_157:0,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h21_r2',hub:'OneUp Rear Hub 148x12',rim:'Race Face ARC Offset 30',F_lat:17.093443065529215,tension_ratio:60.70312297518087,flange_width:61,pcd_mean:50,pcd_ds:48,pcd_nds:52,standard_157:0,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h21_r3',hub:'OneUp Rear Hub 148x12',rim:"Stan's Flow S2",F_lat:16.347042073338272,tension_ratio:60.70312297518087,flange_width:61,pcd_mean:50,pcd_ds:48,pcd_nds:52,standard_157:0,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h21_r4',hub:'OneUp Rear Hub 148x12',rim:'We Are One Convert',F_lat:21.020473627740976,tension_ratio:60.70312297518087,flange_width:61,pcd_mean:50,pcd_ds:48,pcd_nds:52,standard_157:0,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h21_r5',hub:'OneUp Rear Hub 148x12',rim:'ENVE M730',F_lat:21.766213585902335,tension_ratio:60.70312297518087,flange_width:61,pcd_mean:50,pcd_ds:48,pcd_nds:52,standard_157:0,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h23_r1',hub:'KOM Xeno Rear Boost 148x12',rim:'DT Swiss XM 481',F_lat:19.0795390157948,tension_ratio:77.20674343575655,flange_width:54,pcd_mean:46,pcd_ds:46,pcd_nds:46,standard_157:0,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h23_r2',hub:'KOM Xeno Rear Boost 148x12',rim:'Race Face ARC Offset 30',F_lat:18.462479807149762,tension_ratio:77.20674343575655,flange_width:54,pcd_mean:46,pcd_ds:46,pcd_nds:46,standard_157:0,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h23_r3',hub:'KOM Xeno Rear Boost 148x12',rim:"Stan's Flow S2",F_lat:17.256054395698076,tension_ratio:77.20674343575655,flange_width:54,pcd_mean:46,pcd_ds:46,pcd_nds:46,standard_157:0,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h23_r4',hub:'KOM Xeno Rear Boost 148x12',rim:'We Are One Convert',F_lat:24.34081048081888,tension_ratio:77.20674343575655,flange_width:54,pcd_mean:46,pcd_ds:46,pcd_nds:46,standard_157:0,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h23_r5',hub:'KOM Xeno Rear Boost 148x12',rim:'ENVE M730',F_lat:25.395405202741678,tension_ratio:77.20674343575655,flange_width:54,pcd_mean:46,pcd_ds:46,pcd_nds:46,standard_157:0,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h27_r1',hub:'DMR Zone 148 Boost Centerlock',rim:'DT Swiss XM 481',F_lat:15.580794167344463,tension_ratio:55.565944905695595,flange_width:59,pcd_mean:56,pcd_ds:56,pcd_nds:56,standard_157:0,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h27_r2',hub:'DMR Zone 148 Boost Centerlock',rim:'Race Face ARC Offset 30',F_lat:15.238340229208504,tension_ratio:55.565944905695595,flange_width:59,pcd_mean:56,pcd_ds:56,pcd_nds:56,standard_157:0,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h27_r3',hub:'DMR Zone 148 Boost Centerlock',rim:"Stan's Flow S2",F_lat:14.583147829174143,tension_ratio:55.565944905695595,flange_width:59,pcd_mean:56,pcd_ds:56,pcd_nds:56,standard_157:0,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h27_r4',hub:'DMR Zone 148 Boost Centerlock',rim:'We Are One Convert',F_lat:18.68654617637877,tension_ratio:55.565944905695595,flange_width:59,pcd_mean:56,pcd_ds:56,pcd_nds:56,standard_157:0,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h27_r5',hub:'DMR Zone 148 Boost Centerlock',rim:'ENVE M730',F_lat:19.341620990170533,tension_ratio:55.565944905695595,flange_width:59,pcd_mean:56,pcd_ds:56,pcd_nds:56,standard_157:0,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h28_r1',hub:'DT Swiss 350 148 6-bolt',rim:'DT Swiss XM 481',F_lat:18.070115912716474,tension_ratio:63.747036519897115,flange_width:59.900000000000006,pcd_mean:55,pcd_ds:52,pcd_nds:58,standard_157:0,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h28_r2',hub:'DT Swiss 350 148 6-bolt',rim:'Race Face ARC Offset 30',F_lat:17.649390946968712,tension_ratio:63.747036519897115,flange_width:59.900000000000006,pcd_mean:55,pcd_ds:52,pcd_nds:58,standard_157:0,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h28_r3',hub:'DT Swiss 350 148 6-bolt',rim:"Stan's Flow S2",F_lat:16.84295801412159,tension_ratio:63.747036519897115,flange_width:59.900000000000006,pcd_mean:55,pcd_ds:52,pcd_nds:58,standard_157:0,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h28_r4',hub:'DT Swiss 350 148 6-bolt',rim:'We Are One Convert',F_lat:21.86374142789305,tension_ratio:63.747036519897115,flange_width:59.900000000000006,pcd_mean:55,pcd_ds:52,pcd_nds:58,standard_157:0,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h28_r5',hub:'DT Swiss 350 148 6-bolt',rim:'ENVE M730',F_lat:22.659420517560974,tension_ratio:63.747036519897115,flange_width:59.900000000000006,pcd_mean:55,pcd_ds:52,pcd_nds:58,standard_157:0,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h30_r1',hub:'e*thirteen Sidekick 148 Boost',rim:'DT Swiss XM 481',F_lat:15.619855846558108,tension_ratio:55.567140697488284,flange_width:59,pcd_mean:60,pcd_ds:60,pcd_nds:60,standard_157:0,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h30_r2',hub:'e*thirteen Sidekick 148 Boost',rim:'Race Face ARC Offset 30',F_lat:15.277895128127119,tension_ratio:55.567140697488284,flange_width:59,pcd_mean:60,pcd_ds:60,pcd_nds:60,standard_157:0,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h30_r3',hub:'e*thirteen Sidekick 148 Boost',rim:"Stan's Flow S2",F_lat:14.623765464846944,tension_ratio:55.567140697488284,flange_width:59,pcd_mean:60,pcd_ds:60,pcd_nds:60,standard_157:0,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h30_r4',hub:'e*thirteen Sidekick 148 Boost',rim:'We Are One Convert',F_lat:18.72297721313252,tension_ratio:55.567140697488284,flange_width:59,pcd_mean:60,pcd_ds:60,pcd_nds:60,standard_157:0,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h30_r5',hub:'e*thirteen Sidekick 148 Boost',rim:'ENVE M730',F_lat:19.377853026973032,tension_ratio:55.567140697488284,flange_width:59,pcd_mean:60,pcd_ds:60,pcd_nds:60,standard_157:0,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h2_r1',hub:'Onyx 150/157',rim:'DT Swiss XM 481',F_lat:21.61292499797542,tension_ratio:66.57674812516349,flange_width:68.82,pcd_mean:50,pcd_ds:50,pcd_nds:50,standard_157:1,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h2_r2',hub:'Onyx 150/157',rim:'Race Face ARC Offset 30',F_lat:21.16644616088378,tension_ratio:66.57674812516349,flange_width:68.82,pcd_mean:50,pcd_ds:50,pcd_nds:50,standard_157:1,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h2_r3',hub:'Onyx 150/157',rim:"Stan's Flow S2",F_lat:20.315105451496404,tension_ratio:66.57674812516349,flange_width:68.82,pcd_mean:50,pcd_ds:50,pcd_nds:50,standard_157:1,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h2_r4',hub:'Onyx 150/157',rim:'We Are One Convert',F_lat:25.712952085571295,tension_ratio:66.57674812516349,flange_width:68.82,pcd_mean:50,pcd_ds:50,pcd_nds:50,standard_157:1,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h2_r5',hub:'Onyx 150/157',rim:'ENVE M730',F_lat:26.58855494918813,tension_ratio:66.57674812516349,flange_width:68.82,pcd_mean:50,pcd_ds:50,pcd_nds:50,standard_157:1,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h3_r1',hub:'Onyx 150/157 Vesper',rim:'DT Swiss XM 481',F_lat:21.17320732229627,tension_ratio:65.76242119460615,flange_width:68.37,pcd_mean:46,pcd_ds:50,pcd_nds:42,standard_157:1,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h3_r2',hub:'Onyx 150/157 Vesper',rim:'Race Face ARC Offset 30',F_lat:20.733752225839705,tension_ratio:65.76242119460615,flange_width:68.37,pcd_mean:46,pcd_ds:50,pcd_nds:42,standard_157:1,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h3_r3',hub:'Onyx 150/157 Vesper',rim:"Stan's Flow S2",F_lat:19.895640308709783,tension_ratio:65.76242119460615,flange_width:68.37,pcd_mean:46,pcd_ds:50,pcd_nds:42,standard_157:1,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h3_r4',hub:'Onyx 150/157 Vesper',rim:'We Are One Convert',F_lat:25.20560258215564,tension_ratio:65.76242119460615,flange_width:68.37,pcd_mean:46,pcd_ds:50,pcd_nds:42,standard_157:1,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h3_r5',hub:'Onyx 150/157 Vesper',rim:'ENVE M730',F_lat:26.0660208600633,tension_ratio:65.76242119460615,flange_width:68.37,pcd_mean:46,pcd_ds:50,pcd_nds:42,standard_157:1,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h4_r1',hub:'Spank Hex J-Type R150/157',rim:'DT Swiss XM 481',F_lat:24.9114264102659,tension_ratio:75.18295589119303,flange_width:69,pcd_mean:61,pcd_ds:64,pcd_nds:58,standard_157:1,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h4_r2',hub:'Spank Hex J-Type R150/157',rim:'Race Face ARC Offset 30',F_lat:24.3729549987537,tension_ratio:75.18295589119303,flange_width:69,pcd_mean:61,pcd_ds:64,pcd_nds:58,standard_157:1,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h4_r3',hub:'Spank Hex J-Type R150/157',rim:"Stan's Flow S2",F_lat:23.34487575112709,tension_ratio:75.18295589119303,flange_width:69,pcd_mean:61,pcd_ds:64,pcd_nds:58,standard_157:1,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h4_r4',hub:'Spank Hex J-Type R150/157',rim:'We Are One Convert',F_lat:29.837613385348455,tension_ratio:75.18295589119303,flange_width:69,pcd_mean:61,pcd_ds:64,pcd_nds:58,standard_157:1,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h4_r5',hub:'Spank Hex J-Type R150/157',rim:'ENVE M730',F_lat:30.885832764812,tension_ratio:75.18295589119303,flange_width:69,pcd_mean:61,pcd_ds:64,pcd_nds:58,standard_157:1,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h7_r1',hub:'CK 157 SB Centerlock Rear',rim:'DT Swiss XM 481',F_lat:23.630614218226984,tension_ratio:71.77352665731928,flange_width:69.1,pcd_mean:57.4,pcd_ds:57.4,pcd_nds:57.4,standard_157:1,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h7_r2',hub:'CK 157 SB Centerlock Rear',rim:'Race Face ARC Offset 30',F_lat:23.130443789370325,tension_ratio:71.77352665731928,flange_width:69.1,pcd_mean:57.4,pcd_ds:57.4,pcd_nds:57.4,standard_157:1,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h7_r3',hub:'CK 157 SB Centerlock Rear',rim:"Stan's Flow S2",F_lat:22.17608533190674,tension_ratio:71.77352665731928,flange_width:69.1,pcd_mean:57.4,pcd_ds:57.4,pcd_nds:57.4,standard_157:1,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h7_r4',hub:'CK 157 SB Centerlock Rear',rim:'We Are One Convert',F_lat:28.21500741808474,tension_ratio:71.77352665731928,flange_width:69.1,pcd_mean:57.4,pcd_ds:57.4,pcd_nds:57.4,standard_157:1,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h7_r5',hub:'CK 157 SB Centerlock Rear',rim:'ENVE M730',F_lat:29.192303040694057,tension_ratio:71.77352665731928,flange_width:69.1,pcd_mean:57.4,pcd_ds:57.4,pcd_nds:57.4,standard_157:1,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h9_r1',hub:'Project 321 G3 157 SB',rim:'DT Swiss XM 481',F_lat:22.412300678304796,tension_ratio:81.62535318202305,flange_width:58,pcd_mean:57.75,pcd_ds:60.5,pcd_nds:55,standard_157:1,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h9_r2',hub:'Project 321 G3 157 SB',rim:'Race Face ARC Offset 30',F_lat:21.761735210224995,tension_ratio:81.62535318202305,flange_width:58,pcd_mean:57.75,pcd_ds:60.5,pcd_nds:55,standard_157:1,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h9_r3',hub:'Project 321 G3 157 SB',rim:"Stan's Flow S2",F_lat:20.502466336431688,tension_ratio:81.62535318202305,flange_width:58,pcd_mean:57.75,pcd_ds:60.5,pcd_nds:55,standard_157:1,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h9_r4',hub:'Project 321 G3 157 SB',rim:'We Are One Convert',F_lat:28.104621650463052,tension_ratio:81.62535318202305,flange_width:58,pcd_mean:57.75,pcd_ds:60.5,pcd_nds:55,standard_157:1,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h9_r5',hub:'Project 321 G3 157 SB',rim:'ENVE M730',F_lat:29.26640766319835,tension_ratio:81.62535318202305,flange_width:58,pcd_mean:57.75,pcd_ds:60.5,pcd_nds:55,standard_157:1,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h11_r1',hub:'I9 Hydra 6-Bolt 150/157',rim:'DT Swiss XM 481',F_lat:23.71387779811592,tension_ratio:71.125251012666,flange_width:70,pcd_mean:59,pcd_ds:60,pcd_nds:58,standard_157:1,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h11_r2',hub:'I9 Hydra 6-Bolt 150/157',rim:'Race Face ARC Offset 30',F_lat:23.220815343646258,tension_ratio:71.125251012666,flange_width:70,pcd_mean:59,pcd_ds:60,pcd_nds:58,standard_157:1,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h11_r3',hub:'I9 Hydra 6-Bolt 150/157',rim:"Stan's Flow S2",F_lat:22.280574842833325,tension_ratio:71.125251012666,flange_width:70,pcd_mean:59,pcd_ds:60,pcd_nds:58,standard_157:1,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h11_r4',hub:'I9 Hydra 6-Bolt 150/157',rim:'We Are One Convert',F_lat:28.242373139115454,tension_ratio:71.125251012666,flange_width:70,pcd_mean:59,pcd_ds:60,pcd_nds:58,standard_157:1,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h11_r5',hub:'I9 Hydra 6-Bolt 150/157',rim:'ENVE M730',F_lat:29.209850932078563,tension_ratio:71.125251012666,flange_width:70,pcd_mean:59,pcd_ds:60,pcd_nds:58,standard_157:1,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h13_r1',hub:'I9 Hydra Centerlock 157 SB',rim:'DT Swiss XM 481',F_lat:22.06621180892488,tension_ratio:65.85215907123457,flange_width:71,pcd_mean:54.5,pcd_ds:60,pcd_nds:49,standard_157:1,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h13_r2',hub:'I9 Hydra Centerlock 157 SB',rim:'Race Face ARC Offset 30',F_lat:21.62608054175382,tension_ratio:65.85215907123457,flange_width:71,pcd_mean:54.5,pcd_ds:60,pcd_nds:49,standard_157:1,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h13_r3',hub:'I9 Hydra Centerlock 157 SB',rim:"Stan's Flow S2",F_lat:20.787821424122406,tension_ratio:65.85215907123457,flange_width:71,pcd_mean:54.5,pcd_ds:60,pcd_nds:49,standard_157:1,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h13_r4',hub:'I9 Hydra Centerlock 157 SB',rim:'We Are One Convert',F_lat:26.12453368081779,tension_ratio:65.85215907123457,flange_width:71,pcd_mean:54.5,pcd_ds:60,pcd_nds:49,standard_157:1,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h13_r5',hub:'I9 Hydra Centerlock 157 SB',rim:'ENVE M730',F_lat:26.995042197358636,tension_ratio:65.85215907123457,flange_width:71,pcd_mean:54.5,pcd_ds:60,pcd_nds:49,standard_157:1,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h16_r1',hub:'Hope Pro5 157 SB 6-bolt',rim:'DT Swiss XM 481',F_lat:21.721632358249863,tension_ratio:68.56132818624782,flange_width:66.6,pcd_mean:58,pcd_ds:59,pcd_nds:57,standard_157:1,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h16_r2',hub:'Hope Pro5 157 SB 6-bolt',rim:'Race Face ARC Offset 30',F_lat:21.255304456080708,tension_ratio:68.56132818624782,flange_width:66.6,pcd_mean:58,pcd_ds:59,pcd_nds:57,standard_157:1,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h16_r3',hub:'Hope Pro5 157 SB 6-bolt',rim:"Stan's Flow S2",F_lat:20.36494814041937,tension_ratio:68.56132818624782,flange_width:66.6,pcd_mean:58,pcd_ds:59,pcd_nds:57,standard_157:1,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h16_r4',hub:'Hope Pro5 157 SB 6-bolt',rim:'We Are One Convert',F_lat:25.984600403964986,tension_ratio:68.56132818624782,flange_width:66.6,pcd_mean:58,pcd_ds:59,pcd_nds:57,standard_157:1,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h16_r5',hub:'Hope Pro5 157 SB 6-bolt',rim:'ENVE M730',F_lat:26.890724021177494,tension_ratio:68.56132818624782,flange_width:66.6,pcd_mean:58,pcd_ds:59,pcd_nds:57,standard_157:1,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h18_r1',hub:'Erase MTB IS 157x12 V2',rim:'DT Swiss XM 481',F_lat:23.842920527743164,tension_ratio:69.97376016798655,flange_width:72,pcd_mean:53,pcd_ds:56,pcd_nds:50,standard_157:1,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h18_r2',hub:'Erase MTB IS 157x12 V2',rim:'Race Face ARC Offset 30',F_lat:23.360548534897678,tension_ratio:69.97376016798655,flange_width:72,pcd_mean:53,pcd_ds:56,pcd_nds:50,standard_157:1,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h18_r3',hub:'Erase MTB IS 157x12 V2',rim:"Stan's Flow S2",F_lat:22.441506984491447,tension_ratio:69.97376016798655,flange_width:72,pcd_mean:53,pcd_ds:56,pcd_nds:50,standard_157:1,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h18_r4',hub:'Erase MTB IS 157x12 V2',rim:'We Are One Convert',F_lat:28.286765239663797,tension_ratio:69.97376016798655,flange_width:72,pcd_mean:53,pcd_ds:56,pcd_nds:50,standard_157:1,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h18_r5',hub:'Erase MTB IS 157x12 V2',rim:'ENVE M730',F_lat:29.239268862880717,tension_ratio:69.97376016798655,flange_width:72,pcd_mean:53,pcd_ds:56,pcd_nds:50,standard_157:1,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h19_r1',hub:'Hadley 150/157',rim:'DT Swiss XM 481',F_lat:21.78847358515776,tension_ratio:66.6145987932362,flange_width:69,pcd_mean:59,pcd_ds:59,pcd_nds:59,standard_157:1,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h19_r2',hub:'Hadley 150/157',rim:'Race Face ARC Offset 30',F_lat:21.342712381655872,tension_ratio:66.6145987932362,flange_width:69,pcd_mean:59,pcd_ds:59,pcd_nds:59,standard_157:1,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h19_r3',hub:'Hadley 150/157',rim:"Stan's Flow S2",F_lat:20.493021335727015,tension_ratio:66.6145987932362,flange_width:69,pcd_mean:59,pcd_ds:59,pcd_nds:59,standard_157:1,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h19_r4',hub:'Hadley 150/157',rim:'We Are One Convert',F_lat:25.886713328631,tension_ratio:66.6145987932362,flange_width:69,pcd_mean:59,pcd_ds:59,pcd_nds:59,standard_157:1,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h19_r5',hub:'Hadley 150/157',rim:'ENVE M730',F_lat:26.763030904628483,tension_ratio:66.6145987932362,flange_width:69,pcd_mean:59,pcd_ds:59,pcd_nds:59,standard_157:1,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h22_r1',hub:'OneUp Rear Hub 157x12',rim:'DT Swiss XM 481',F_lat:21.45687280226858,tension_ratio:74.33662298497184,flange_width:61,pcd_mean:50.25,pcd_ds:48,pcd_nds:52.5,standard_157:1,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h22_r2',hub:'OneUp Rear Hub 157x12',rim:'Race Face ARC Offset 30',F_lat:20.916453542668936,tension_ratio:74.33662298497184,flange_width:61,pcd_mean:50.25,pcd_ds:48,pcd_nds:52.5,standard_157:1,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h22_r3',hub:'OneUp Rear Hub 157x12',rim:"Stan's Flow S2",F_lat:19.877868573874498,tension_ratio:74.33662298497184,flange_width:61,pcd_mean:50.25,pcd_ds:48,pcd_nds:52.5,standard_157:1,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h22_r4',hub:'OneUp Rear Hub 157x12',rim:'We Are One Convert',F_lat:26.290211455348608,tension_ratio:74.33662298497184,flange_width:61,pcd_mean:50.25,pcd_ds:48,pcd_nds:52.5,standard_157:1,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h22_r5',hub:'OneUp Rear Hub 157x12',rim:'ENVE M730',F_lat:27.295961538808275,tension_ratio:74.33662298497184,flange_width:61,pcd_mean:50.25,pcd_ds:48,pcd_nds:52.5,standard_157:1,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h24_r1',hub:'KOM Xeno Rear Super Boost 157',rim:'DT Swiss XM 481',F_lat:24.03187030521765,tension_ratio:80.19035399516025,flange_width:63,pcd_mean:46,pcd_ds:46,pcd_nds:46,standard_157:1,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h24_r2',hub:'KOM Xeno Rear Super Boost 157',rim:'Race Face ARC Offset 30',F_lat:23.419427279160924,tension_ratio:80.19035399516025,flange_width:63,pcd_mean:46,pcd_ds:46,pcd_nds:46,standard_157:1,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h24_r3',hub:'KOM Xeno Rear Super Boost 157',rim:"Stan's Flow S2",F_lat:22.24259675039777,tension_ratio:80.19035399516025,flange_width:63,pcd_mean:46,pcd_ds:46,pcd_nds:46,standard_157:1,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h24_r4',hub:'KOM Xeno Rear Super Boost 157',rim:'We Are One Convert',F_lat:29.51360946302353,tension_ratio:80.19035399516025,flange_width:63,pcd_mean:46,pcd_ds:46,pcd_nds:46,standard_157:1,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h24_r5',hub:'KOM Xeno Rear Super Boost 157',rim:'ENVE M730',F_lat:30.654795484113055,tension_ratio:80.19035399516025,flange_width:63,pcd_mean:46,pcd_ds:46,pcd_nds:46,standard_157:1,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h26_r1',hub:'DMR Zone 157 SB Centerlock',rim:'DT Swiss XM 481',F_lat:19.137326934699637,tension_ratio:61.32659279105677,flange_width:66,pcd_mean:56,pcd_ds:56,pcd_nds:56,standard_157:1,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h26_r2',hub:'DMR Zone 157 SB Centerlock',rim:'Race Face ARC Offset 30',F_lat:18.743192776750703,tension_ratio:61.32659279105677,flange_width:66,pcd_mean:56,pcd_ds:56,pcd_nds:56,standard_157:1,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h26_r3',hub:'DMR Zone 157 SB Centerlock',rim:"Stan's Flow S2",F_lat:17.99156773186544,tension_ratio:61.32659279105677,flange_width:66,pcd_mean:56,pcd_ds:56,pcd_nds:56,standard_157:1,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h26_r4',hub:'DMR Zone 157 SB Centerlock',rim:'We Are One Convert',F_lat:22.75321464667555,tension_ratio:61.32659279105677,flange_width:66,pcd_mean:56,pcd_ds:56,pcd_nds:56,standard_157:1,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h26_r5',hub:'DMR Zone 157 SB Centerlock',rim:'ENVE M730',F_lat:23.524486958915592,tension_ratio:61.32659279105677,flange_width:66,pcd_mean:56,pcd_ds:56,pcd_nds:56,standard_157:1,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h29_r1',hub:'DT Swiss 350 157 6-bolt',rim:'DT Swiss XM 481',F_lat:22.16572699648829,tension_ratio:67.89890442500254,flange_width:69,pcd_mean:55.25,pcd_ds:50.5,pcd_nds:60,standard_157:1,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h29_r2',hub:'DT Swiss 350 157 6-bolt',rim:'Race Face ARC Offset 30',F_lat:21.707260839062506,tension_ratio:67.89890442500254,flange_width:69,pcd_mean:55.25,pcd_ds:50.5,pcd_nds:60,standard_157:1,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h29_r3',hub:'DT Swiss 350 157 6-bolt',rim:"Stan's Flow S2",F_lat:20.833063648568775,tension_ratio:67.89890442500254,flange_width:69,pcd_mean:55.25,pcd_ds:50.5,pcd_nds:60,standard_157:1,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h29_r4',hub:'DT Swiss 350 157 6-bolt',rim:'We Are One Convert',F_lat:26.376359886578324,tension_ratio:67.89890442500254,flange_width:69,pcd_mean:55.25,pcd_ds:50.5,pcd_nds:60,standard_157:1,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h29_r5',hub:'DT Swiss 350 157 6-bolt',rim:'ENVE M730',F_lat:27.275756597619033,tension_ratio:67.89890442500254,flange_width:69,pcd_mean:55.25,pcd_ds:50.5,pcd_nds:60,standard_157:1,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
+    {id:'h31_r1',hub:'e*thirteen Sidekick Pro 157 SB',rim:'DT Swiss XM 481',F_lat:19.396710747273573,tension_ratio:60.379354427594066,flange_width:68,pcd_mean:60,pcd_ds:60,pcd_nds:60,standard_157:1,rim_stiffness_index:1,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h31_r2',hub:'e*thirteen Sidekick Pro 157 SB',rim:'Race Face ARC Offset 30',F_lat:19.01141458884751,tension_ratio:60.379354427594066,flange_width:68,pcd_mean:60,pcd_ds:60,pcd_nds:60,standard_157:1,rim_stiffness_index:0.952,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h31_r3',hub:'e*thirteen Sidekick Pro 157 SB',rim:"Stan's Flow S2",F_lat:18.277561978103616,tension_ratio:60.379354427594066,flange_width:68,pcd_mean:60,pcd_ds:60,pcd_nds:60,standard_157:1,rim_stiffness_index:0.867,rim_internal_width:30,rim_material:'alloy'},
+    {id:'h31_r4',hub:'e*thirteen Sidekick Pro 157 SB',rim:'We Are One Convert',F_lat:22.947071668399918,tension_ratio:60.379354427594066,flange_width:68,pcd_mean:60,pcd_ds:60,pcd_nds:60,standard_157:1,rim_stiffness_index:1.575,rim_internal_width:35,rim_material:'carbon'},
+    {id:'h31_r5',hub:'e*thirteen Sidekick Pro 157 SB',rim:'ENVE M730',F_lat:23.707864231518734,tension_ratio:60.379354427594066,flange_width:68,pcd_mean:60,pcd_ds:60,pcd_nds:60,standard_157:1,rim_stiffness_index:1.736,rim_internal_width:30,rim_material:'carbon'},
   ];
 
   // Registry pattern: one entry per candidate beta. `group` marks the
-  // mutual-exclusivity set that keeps PCD from being fed to the model
-  // twice under two names (pcd_mean is exactly (pcd_ds+pcd_nds)/2, so all
-  // three together make the design matrix singular).
+  // mutual-exclusivity set for PCD (pcd_mean is exactly (pcd_ds+pcd_nds)/2,
+  // so all three together make the design matrix singular). Rim betas are
+  // NOT mutually exclusive -- correlated (VIF ~1.3) but not degenerate.
   const BETAS = [
-    { id: "tension_ratio", label: "Tension split", sub: "NDS/DS ratio", unit: "%" },
-    { id: "flange_width",  label: "Flange width",  sub: "NDS + DS total", unit: "mm" },
-    { id: "pcd_mean",      label: "Flange PCD",    sub: "(DS+NDS) / 2", unit: "mm", group: "pcd" },
-    { id: "pcd_ds",        label: "Flange PCD, DS",  sub: "drive side", unit: "mm", group: "pcd" },
-    { id: "pcd_nds",       label: "Flange PCD, NDS", sub: "non-drive side", unit: "mm", group: "pcd" },
-    { id: "standard_157",  label: "Axle standard", sub: "157 = 1, 148 = 0", unit: "" },
+    { id: "tension_ratio", label: "Tension split", sub: "NDS/DS ratio", unit: "%", section: "hub" },
+    { id: "flange_width",  label: "Flange width",  sub: "NDS + DS total", unit: "mm", section: "hub" },
+    { id: "pcd_mean",      label: "Flange PCD",    sub: "(DS+NDS) / 2", unit: "mm", group: "pcd", section: "hub" },
+    { id: "pcd_ds",        label: "Flange PCD, DS",  sub: "drive side", unit: "mm", group: "pcd", section: "hub" },
+    { id: "pcd_nds",       label: "Flange PCD, NDS", sub: "non-drive side", unit: "mm", group: "pcd", section: "hub" },
+    { id: "standard_157",  label: "Axle standard", sub: "157 = 1, 148 = 0", unit: "", section: "hub" },
+    { id: "rim_stiffness_index", label: "Rim stiffness", sub: "composite index", unit: "", section: "rim", tier: "est" },
+    { id: "rim_internal_width",  label: "Rim internal width", sub: "published spec", unit: "mm", section: "rim", tier: "ver" },
   ];
 
-  let selected = new Set(["tension_ratio", "flange_width", "pcd_mean", "standard_157"]);
+  let selected = new Set(["tension_ratio", "flange_width", "pcd_mean", "standard_157", "rim_stiffness_index"]);
 
   // ---------------------------------------------------------------------
-  // Small linear-algebra kernel: just enough for OLS on <= 7 columns.
+  // Small linear-algebra kernel: just enough for OLS on <= 8 columns.
   // ---------------------------------------------------------------------
   function transpose(A) { return A[0].map((_, j) => A.map((row) => row[j])); }
   function matmul(A, B) {
@@ -457,6 +623,11 @@
     return { beta, se, r2, adjR2, df, n, p, yhat };
   }
 
+  // Note: this in-browser fit does NOT cluster standard errors by hub, even
+  // though each hub appears 5 times (once per rim) -- a real repeated-
+  // measures design. The Python regression in this folder's README does
+  // cluster by hub_id; treat the CI whiskers here as a quick-look
+  // approximation, not the final word -- see README.
   function runModel() {
     const betaIds = BETAS.filter((b) => selected.has(b.id)).map((b) => b.id);
     const y = DATA.map((d) => d.F_lat);
@@ -478,10 +649,9 @@
   // ---------------------------------------------------------------------
   // Chips
   // ---------------------------------------------------------------------
-  const chipsEl = document.getElementById("chips");
-  function renderChips() {
-    chipsEl.innerHTML = "";
-    BETAS.forEach((b) => {
+  function renderChipGroup(hostEl, section) {
+    hostEl.innerHTML = "";
+    BETAS.filter((b) => b.section === section).forEach((b) => {
       const on = selected.has(b.id);
       const groupBlocked = b.group && [...selected].some((id) => {
         const other = BETAS.find((x) => x.id === id);
@@ -492,7 +662,8 @@
       btn.type = "button";
       btn.dataset.on = String(on);
       btn.disabled = !!groupBlocked;
-      btn.innerHTML = `<span class="chip-label"><span class="chip-swatch"></span>${b.label}</span><span class="chip-sub">${b.sub}${b.unit ? " &middot; " + b.unit : ""}</span>`;
+      const tierTag = b.tier ? `<span class="chip-tier ${b.tier}">${b.tier.toUpperCase()}</span>` : "";
+      btn.innerHTML = `<span class="chip-label"><span class="chip-swatch"></span>${b.label}${tierTag}</span><span class="chip-sub">${b.sub}${b.unit ? " &middot; " + b.unit : ""}</span>`;
       btn.addEventListener("click", () => {
         if (selected.has(b.id)) {
           selected.delete(b.id);
@@ -505,8 +676,12 @@
         }
         render();
       });
-      chipsEl.appendChild(btn);
+      hostEl.appendChild(btn);
     });
+  }
+  function renderChips() {
+    renderChipGroup(document.getElementById("chipsHub"), "hub");
+    renderChipGroup(document.getElementById("chipsRim"), "rim");
   }
 
   // ---------------------------------------------------------------------
@@ -585,7 +760,7 @@
   }
 
   // ---------------------------------------------------------------------
-  // Scatter: predicted vs actual F_lat
+  // Scatter: predicted vs actual F_lat, colored by rim material
   // ---------------------------------------------------------------------
   function renderScatter(model) {
     const host = document.getElementById("scatterChart");
@@ -597,14 +772,14 @@
     const scale = (v) => pad + ((v - lo) / (hi - lo)) * (W - pad - 16);
     const scaleY = (v) => H - pad - ((v - lo) / (hi - lo)) * (H - pad - 16);
 
-    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Predicted vs actual F_lat scatter">`;
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Predicted vs actual F_lat scatter, colored by rim material">`;
     svg += `<line class="tick-line" x1="${pad}" y1="${H - pad}" x2="${W - 16}" y2="${H - pad}" />`;
     svg += `<line class="tick-line" x1="${pad}" y1="${16}" x2="${pad}" y2="${H - pad}" />`;
     svg += `<line x1="${scale(lo)}" y1="${scaleY(lo)}" x2="${scale(hi)}" y2="${scaleY(hi)}" stroke="var(--ink-faint)" stroke-width="1.25" stroke-dasharray="4 4" />`;
     DATA.forEach((d, i) => {
       const cx = scale(d.F_lat), cy = scaleY(yhat[i]);
-      const color = d.standard_157 ? "var(--accent-pos-fill)" : "var(--accent-neg-fill)";
-      svg += `<circle cx="${cx}" cy="${cy}" r="4.5" fill="${color}" fill-opacity="0.78" stroke="var(--surface)" stroke-width="1"><title>${d.name}: actual ${d.F_lat.toFixed(1)}kgf, predicted ${yhat[i].toFixed(1)}kgf</title></circle>`;
+      const color = d.rim_material === "carbon" ? "var(--accent-pos-fill)" : "var(--accent-neg-fill)";
+      svg += `<circle cx="${cx}" cy="${cy}" r="4" fill="${color}" fill-opacity="0.7" stroke="var(--surface)" stroke-width="0.75"><title>${d.hub} / ${d.rim}: actual ${d.F_lat.toFixed(1)}kgf, predicted ${yhat[i].toFixed(1)}kgf</title></circle>`;
     });
     svg += `<text class="axis-label" x="${pad}" y="${H - 12}">actual F_lat (kgf) →</text>`;
     svg += `<text class="axis-label" x="${pad - 8}" y="26" text-anchor="start">↑ predicted</text>`;
@@ -613,22 +788,43 @@
   }
 
   // ---------------------------------------------------------------------
+  // Rim catalog table
+  // ---------------------------------------------------------------------
+  function renderRimTable() {
+    let html = "<thead><tr><th>Rim</th><th>Material</th><th>Internal width</th><th>Depth</th><th>Stiffness index</th><th>Source</th></tr></thead><tbody>";
+    RIM_CATALOG.forEach((r) => {
+      html += `<tr><td>${r.name}</td><td>${r.material}</td><td>${r.width.toFixed(1)}mm</td><td>${r.depth.toFixed(1)}mm</td><td>${r.index.toFixed(3)}</td><td>${r.source}</td></tr>`;
+    });
+    html += "</tbody>";
+    document.getElementById("rimTable").innerHTML = html;
+  }
+
+  const RIM_CATALOG = [
+    { name: "DT Swiss XM 481", material: "alloy", width: 30, depth: 21, index: 1.000, source: "dtswiss.com" },
+    { name: "Race Face ARC Offset 30", material: "alloy", width: 30, depth: 20, index: 0.952, source: "bike24.com" },
+    { name: "Stan's Flow S2", material: "alloy", width: 30, depth: 18.2, index: 0.867, source: "stans.com" },
+    { name: "We Are One Convert", material: "carbon", width: 35, depth: 21, index: 1.575, source: "evoride-wheels.com" },
+    { name: "ENVE M730", material: "carbon", width: 30, depth: 27, index: 1.736, source: "enve.com" },
+  ];
+
+  // ---------------------------------------------------------------------
   // Dataset table
   // ---------------------------------------------------------------------
   function renderTable() {
     const cols = [
-      { key: "name", label: "Hub" },
-      { key: "standard_157", label: "Std." },
+      { key: "hub", label: "Hub" },
+      { key: "rim", label: "Rim" },
+      { key: "rim_material", label: "Material" },
       { key: "F_lat", label: "F_lat (kgf)" },
-      { key: "tension_ratio", label: "Tension % " },
+      { key: "tension_ratio", label: "Tension %" },
       { key: "flange_width", label: "Flange (mm)" },
-      { key: "pcd_ds", label: "PCD DS" },
-      { key: "pcd_nds", label: "PCD NDS" },
+      { key: "rim_stiffness_index", label: "Rim idx" },
+      { key: "standard_157", label: "Std." },
     ];
     let html = "<thead><tr>" + cols.map((c) => `<th>${c.label}</th>`).join("") + "</tr></thead><tbody>";
     DATA.forEach((d) => {
       html += "<tr>" + cols.map((c) => {
-        if (c.key === "name") return `<td>${d.name}</td>`;
+        if (c.key === "hub" || c.key === "rim" || c.key === "rim_material") return `<td>${d[c.key]}</td>`;
         if (c.key === "standard_157") return `<td>${d.standard_157 ? "157" : "148"}</td>`;
         const v = d[c.key];
         return `<td>${typeof v === "number" ? v.toFixed(2) : v}</td>`;
@@ -640,8 +836,12 @@
 
   function renderGuardNote() {
     document.getElementById("guardNote").innerHTML =
-      "Flange PCD can only enter the model one way at a time: the mean, or the drive/non-drive pair. " +
-      "Selecting one clears the other &mdash; averaging DS+NDS and including DS+NDS separately would feed the model the same information twice (an exactly singular design matrix, not just a correlated one).";
+      "<strong>PCD guardrail:</strong> the mean and the DS/NDS pair can't both be selected &mdash; " +
+      "<code>pcd_mean</code> is exactly their average, so having all three would make the model's " +
+      "underlying matrix singular (not just correlated). " +
+      "<strong>Rim betas</strong> are not mutually exclusive (VIF &asymp; 1.3, correlated but not degenerate) &mdash; " +
+      "but <code>rim_stiffness_index</code> is an estimate this tool built from published geometry and a " +
+      "documented material rule of thumb, not a measured constant. See the rim catalog panel below.";
   }
 
   function render() {
@@ -653,6 +853,7 @@
   }
 
   renderGuardNote();
+  renderRimTable();
   renderTable();
   render();
 })();
