@@ -1,6 +1,6 @@
-// Builds the hub x rim regression dataset by running wheel-physics-core's
+// Builds the full regression dataset by running wheel-physics-core's
 // validated calc() engine directly -- same math the live app uses -- once
-// per (hub, rim) pair.
+// per (hub, rim, spoke diameter, spoke count, tension, wheel size) tuple.
 const { calc } = require('wheel-physics-core');
 
 const HUBS_148 = [
@@ -42,53 +42,16 @@ const HUBS_157 = [
 const ALL_HUBS = [...HUBS_148, ...HUBS_157];
 
 // ---------------------------------------------------------------------
-// Rim catalog. Geometry (internal width, depth, material) is verified
-// against manufacturer/retailer spec pages -- see README for the source
-// list. Ford's Mode Matrix stiffness constants (EIL/EIR/GJ/EA_rim) are
-// NOT published for any of these rims by any manufacturer -- nobody
-// publishes bending/torsional stiffness in N*m^2 -- so they cannot be
-// "looked up." rim_stiffness_index is this file's own estimate, scaling
-// the app's existing default constants (EIL=50, EIR=150, GJ=22,
-// EA_rim=115e5, which already represent a generic alloy double-wall rim
-// closely matching the DT Swiss XM481's profile) by a single composite
-// factor built from two real, sourced numbers per rim:
-//   geometry_factor = (internal_width_mm * depth_mm) / (30 * 21)   [XM481 = 1.00]
-//   material_factor = 1.35 for carbon layup, 1.00 for alloy
-//     (a rough industry rule of thumb for stiffness-per-envelope, not a
-//     measurement of any of these specific rims)
-// index = geometry_factor * material_factor, applied UNIFORMLY to all
-// four Ford constants. That uniform application is a simplification --
-// real rims do not stiffen identically in every mode -- but splitting it
-// into four independently-justified exponents would need wall-thickness
-// and layup data no manufacturer publishes; one indicative index beats
-// four invented ones. Treat rim_stiffness_index as an ESTIMATE, not a
-// verified figure, wherever it's shown.
+// Rim catalog -- see README for sourcing and the rim_stiffness_index
+// scaling method (an estimate; internal_width/depth/material are
+// verified against manufacturer/retailer spec pages).
+// ---------------------------------------------------------------------
 const RIMS = [
-  {
-    id: "r1", name: "DT Swiss XM 481", material: "alloy",
-    internal_width: 30, depth: 21,
-    source: "dtswiss.com; biketart.com",
-  },
-  {
-    id: "r2", name: "Race Face ARC Offset 30", material: "alloy",
-    internal_width: 30, depth: 20,
-    source: "bike24.com; probikesupply.com",
-  },
-  {
-    id: "r3", name: "Stan's Flow S2", material: "alloy",
-    internal_width: 30, depth: 18.2,
-    source: "stans.com",
-  },
-  {
-    id: "r4", name: "We Are One Convert", material: "carbon",
-    internal_width: 35, depth: 21,
-    source: "evoride-wheels.com",
-  },
-  {
-    id: "r5", name: "ENVE M730", material: "carbon",
-    internal_width: 30, depth: 27,
-    source: "enve.com; nsmb.com",
-  },
+  { id: "r1", name: "DT Swiss XM 481", material: "alloy", internal_width: 30, depth: 21 },
+  { id: "r2", name: "Race Face ARC Offset 30", material: "alloy", internal_width: 30, depth: 20 },
+  { id: "r3", name: "Stan's Flow S2", material: "alloy", internal_width: 30, depth: 18.2 },
+  { id: "r4", name: "We Are One Convert", material: "carbon", internal_width: 35, depth: 21 },
+  { id: "r5", name: "ENVE M730", material: "carbon", internal_width: 30, depth: 27 },
 ].map((r) => {
   const REF_WIDTH = 30, REF_DEPTH = 21; // DT Swiss XM 481 -- the app's existing default rim
   const geometryFactor = (r.internal_width * r.depth) / (REF_WIDTH * REF_DEPTH);
@@ -96,41 +59,78 @@ const RIMS = [
   return { ...r, rim_stiffness_index: +(geometryFactor * materialFactor).toFixed(3) };
 });
 
-// Fixed defaults: 29" wheel (ERD 600mm), 32 spokes, 2.0mm spoke diameter
-// both sides, 100kgf drive-side tension. Ford's reference rim constants,
-// scaled per-rim by rim_stiffness_index.
-const ERD = 600, SPOKES = 32, SPK_DIA = 2, T_DS = 100;
+// ---------------------------------------------------------------------
+// Build-spec betas 1-4. Each is a real, verifiable spec or a published
+// working range -- not an estimate like rim_stiffness_index. Two levels
+// per dimension (not three) to keep the full factorial (30 hubs x 5
+// rims x 2^4 = 2400 rows) a size an in-browser explorer can still hold
+// entirely in memory. See README for sources.
+// ---------------------------------------------------------------------
+// 1. Spoke diameter (mm) -- same gauge both sides (mixed-gauge builds
+//    are common in practice but would double this dimension again; not
+//    modeled here). 14g = 2.0mm, 15g = 1.8mm (SWG standard).
+const SPOKE_DIAMETERS = [1.8, 2.0];
+// 2. Spoke count -- 28h and 32h, the two most common trail/enduro
+//    counts in this hub catalogue's actual product lines. 36h exists
+//    but is more DH-specific; omitted to hold the factorial size down.
+const SPOKE_COUNTS = [28, 32];
+// 3. Drive-side build tension (kgf) -- 90kgf (Stan's-style modern-rim
+//    low end) to 120kgf (DT Swiss's stated maximum). Not a component
+//    spec, but bracketed by two manufacturers' own published numbers
+//    rather than picked arbitrarily.
+const TENSIONS_KGF = [90, 120];
+// 4. Wheel size (ERD, mm) -- 27.5" and 29" only; this hub/rim catalogue
+//    is trail/enduro-oriented and 26"/32"(fat) aren't realistic options
+//    for it. ERD values from the app's own RIM_ERD_BY_SIZE table.
+const WHEEL_SIZES = [
+  { label: "27.5", erd: 559 },
+  { label: "29", erd: 600 },
+];
+
+const SPOKES_PER_SIDE_DIA = (d) => d; // same diameter both sides, kept as a named step for clarity
 const EIL_REF = 50, EIR_REF = 150, GJ_REF = 22, EA_RIM_REF = 115e5, MODES = 24;
 
 const rows = [];
 for (const h of ALL_HUBS) {
   for (const r of RIMS) {
-    const idx = r.rim_stiffness_index;
-    const result = calc(
-      ERD, h, SPK_DIA, SPK_DIA, T_DS,
-      EIL_REF * idx, EIR_REF * idx, GJ_REF * idx, EA_RIM_REF * idx,
-      SPOKES, MODES
-    );
-    rows.push({
-      hub_id: h.id,
-      hub_name: h.name,
-      rim_id: r.id,
-      rim_name: r.name,
-      F_lat: result.F_lat,                    // Y
-      tension_ratio: result.ratio,             // beta1
-      flange_width: h.nds + h.ds,              // beta2
-      pcd_mean: (h.pds + h.pnds) / 2,          // beta3
-      pcd_ds: h.pds,
-      pcd_nds: h.pnds,
-      standard_157: h.standard === 157 ? 1 : 0, // beta4
-      rim_stiffness_index: idx,                 // beta5 (estimated)
-      rim_internal_width: r.internal_width,     // beta6 (verified)
-      rim_material: r.material,
-    });
+    for (const dia of SPOKE_DIAMETERS) {
+      for (const count of SPOKE_COUNTS) {
+        for (const tension of TENSIONS_KGF) {
+          for (const wheel of WHEEL_SIZES) {
+            const idx = r.rim_stiffness_index;
+            const spk = SPOKES_PER_SIDE_DIA(dia);
+            const result = calc(
+              wheel.erd, h, spk, spk, tension,
+              EIL_REF * idx, EIR_REF * idx, GJ_REF * idx, EA_RIM_REF * idx,
+              count, MODES
+            );
+            rows.push({
+              hub_id: h.id,
+              hub_name: h.name,
+              rim_id: r.id,
+              rim_name: r.name,
+              F_lat: result.F_lat,                     // Y
+              tension_ratio: result.ratio,              // beta1
+              flange_width: h.nds + h.ds,               // beta2
+              pcd_mean: (h.pds + h.pnds) / 2,           // beta3
+              pcd_ds: h.pds,
+              pcd_nds: h.pnds,
+              standard_157: h.standard === 157 ? 1 : 0, // beta4
+              rim_stiffness_index: idx,                 // beta5 (estimated)
+              rim_internal_width: r.internal_width,     // beta6 (verified)
+              rim_material: r.material,
+              spoke_diameter: dia,                      // beta7 (verified)
+              spoke_count: count,                       // beta8 (verified)
+              tension_kgf: tension,                     // beta9 (verified, working-range setpoint)
+              wheel_erd: wheel.erd,                     // beta10 (verified)
+              wheel_size: wheel.label,
+            });
+          }
+        }
+      }
+    }
   }
 }
 
 console.log(JSON.stringify(rows, null, 2));
-console.error(`# ${rows.length} rows (${ALL_HUBS.length} hubs x ${RIMS.length} rims)`);
-console.error("# Rim catalog:");
-RIMS.forEach((r) => console.error(`#   ${r.name}: ${r.internal_width}mm / ${r.depth}mm / ${r.material} -> index ${r.rim_stiffness_index}`));
+console.error(`# ${rows.length} rows (30 hubs x 5 rims x 2 spoke-dia x 2 spoke-count x 2 tension x 2 wheel-size)`);
