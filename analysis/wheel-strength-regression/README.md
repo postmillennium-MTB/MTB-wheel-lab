@@ -85,6 +85,51 @@ See the code comments in `build_dataset.js` for the full reasoning and its
 limits. Treat it as a labeled estimate for exploring sensitivity, not a
 claim about exactly how much stiffer an ENVE M730 is than a Stan's Flow S2.
 
+### Real measured rim stiffness data exists -- just not for these rims
+
+`wheel-physics-core`'s own repo carries no rim database, only one generic
+validation fixture (EIL=50, EIR=150, GJ=22 N&middot;m&sup2;, arbitrary
+units, used to check the JS port against Ford's Python reference across
+hubs, not tied to any real product). But Matthew Ford's own tooling does
+have real numbers -- they just live in a repo this project hadn't looked at
+yet: [`dashdotrobot/wheel-app`](https://github.com/dashdotrobot/wheel-app),
+a Bokeh GUI with a hardcoded rim-preset table
+(`wheel-app/helpers.py`):
+
+| Rim | Size | Mass | EI_rad (N&middot;m&sup2;) | EI_lat (N&middot;m&sup2;) | GJ (N&middot;m&sup2;) |
+|---|---|---|---|---|---|
+| Alex ALX-295 | 700C | 480g | 310 | 210 | 85 |
+| DT Swiss R460 | 700C | 460g | 280 | 230 | 100 |
+| Sun-Ringle CR18 700C, 36h | 700C | 540g | 110 | 220 | 25 |
+| Sun-Ringle CR18 20" | 20" | 380g | 100 | 150 | 25 |
+| Alex X404 27" | 27" | 595g | 130 | 150 | 15 |
+| Alex Y2000 26" | 26" | 460g | 110 | 130 | 15 |
+| Alex Y2000 700C | 700C | 550g | 125 | 160 | 20 |
+
+One of these, the Sun-Ringle CR18 700C, is also his actual physical test
+article: his `phd-thesis` repo (`data/lateral_stiffness_tension/wheel_info.csv`,
+rim serial `BR17282958`) has a four-point-bend lab measurement of that exact
+rim -- EI&asymp;266/113 N&middot;m&sup2; (lat/rad) and GJ&asymp;25.9
+N&middot;m&sup2; -- with a documented Monte Carlo error-propagation method
+in his `rim-testing` repo. That's the one number in this entire analysis
+traceable to an actual physical bending test rather than a spec sheet or a
+rule of thumb.
+
+**Why none of this replaces `rim_stiffness_index` above**: every rim in
+that table is a narrow alloy rim-brake road/hybrid rim (700C/26"/27",
+~2015-2018 era) -- not a modern wide tubeless MTB rim like any of the 5 in
+this catalogue. Mixing them into the regression would confound "narrow road
+rim" with "wide MTB rim" in a beta that's supposed to isolate stiffness
+alone, so they're listed here for reference and future calibration work
+only, not joined into `build_dataset.js`. Kept for two reasons: (1) it's
+the closest thing to ground truth this analysis has touched, useful for
+sanity-checking whether `rim_stiffness_index`'s geometry-times-material
+formula is in a believable range at all, and (2) Matthew Ford has
+described a phone-microphone acoustic method for measuring a rim's own
+EI/GJ directly (a paper, not yet reviewed here) -- if that method gets
+applied to one of this catalogue's actual 5 rims, this is where that
+measured value would replace the corresponding estimated row above.
+
 ## Build-spec betas 1-4, and why each level was chosen
 
 Each of these is a genuine, checkable spec or a published working range --
