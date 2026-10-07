@@ -1,7 +1,7 @@
 # Lateral wheel-strength regression
 
 Full-factorial OLS regression against the app's own 30-hub catalogue
-(`HUBS_148` + `HUBS_157` from `src/data.js`), a 5-rim catalogue, and four
+(`HUBS_148` + `HUBS_157` from `src/data.js`, read live by `hubs.js`), a 5-rim catalogue, and four
 build-spec dimensions (spoke diameter, spoke count, build tension, wheel
 size), run through `wheel-physics-core`'s validated `calc()` engine
 directly -- the same numbers the COMPARE tab shows, not a re-derivation.
@@ -163,19 +163,27 @@ explorer does not (see the guardrail note above).
 
 ## Running it
 
-`dataset.json` and `wheel_strength_dataset.csv` are not checked into this
-repo -- at 2,400 rows they're a few hundred KB of numbers already fully
-derivable from `build_dataset.js`, so regenerate them rather than diffing
-a large data blob on every catalogue change. `explorer.html` carries its
-own embedded copy of the same 2,400 rows for the live page.
+**Hub dimensions are not stored here.** `hubs.js` reads `HUBS_148` and
+`HUBS_157` straight out of the app's `src/data.js` inside
+`wheel-lab-source.zip` (repo root), so there is one hub list for the whole
+repo. To change a hub, edit it in the archive; never in this folder.
+
+`explorer.html` carries an embedded copy of the 2,400 rows and the per-hub
+geometry lookup, because it has to run as a standalone page. Those two
+blocks sit between `BEGIN/END GENERATED` markers and are rewritten by
+`build_explorer.js` -- don't hand-edit them. After any hub change:
 
 ```bash
 npm install                 # pulls wheel-physics-core, pinned to the same
                              # commit as the main app's package.json
+node build_explorer.js      # regenerates explorer.html's DATA + HUB_GEOM
 node build_dataset.js > dataset.json
 pip install numpy pandas statsmodels
 python3 regression.py       # also writes wheel_strength_dataset.csv
 ```
+
+Requires `unzip` on the PATH (preinstalled on macOS, most Linux, and the
+CI runner).
 
 `regression.py` prints the raw-unit OLS summary (cluster-robust SEs by
 hub), standardized (z-scored) betas with p-values, VIF per predictor, and
