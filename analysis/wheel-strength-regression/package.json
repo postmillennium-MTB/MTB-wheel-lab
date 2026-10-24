@@ -6,6 +6,6 @@
     "dataset": "node build_dataset.js > dataset.json"
   },
   "dependencies": {
-    "wheel-physics-core": "github:postmillennium-MTB/wheel-physics-core#662ab56ea1ac89679fb83b8310bea6de09d74ff1"
+    "wheel-physics-core": "github:postmillennium-MTB/wheel-physics-core#1e81384c7b0aa0d051ae5a7dbbdc88826c949a5c"
   }
 }
