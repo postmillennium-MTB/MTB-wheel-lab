@@ -75,7 +75,17 @@ Python, line for line. `wheel-comparison-widget2` has no build step, so it
 keeps its own synced copy of that same engine file instead — the two tools
 end up running byte-identical math either way.
 
-Across the 30 hubs in the catalogue (`src/data.js`) at standard build conditions (29 in, 32H, 2.0 mm spokes, 100 kgf DS tension), K_lat ranges from **53.6 to 82.6 N/mm for 148** builds and **63.0 to 102.5 N/mm for 157** builds. The variation within each standard is as large as the difference between standards — meaning hub geometry and wheel size matter as much as the axle width.
+Lateral strength (`F_lat`, the sideways load at which the first spoke goes
+slack) and buckling tension come from Ford's fully-discrete-spoke Mode
+Matrix, where each spoke sits at its own position around the rim and
+lateral and radial deflection are coupled. Stiffness (`K_lat`, `K_rad`)
+uses his smeared-spoke formulas. Until October 2026 strength also used a
+smeared shortcut; wheel-physics-core's `validation/strength/README.md`
+records why it was replaced. A build at or past its buckling tension has no
+meaningful strength figure, and the COMPARE tab says so instead of showing
+one (it happens on 32" rims at high tension).
+
+Across the 30 hubs in the catalogue (`src/data.js`) at standard build conditions (29 in, 32H, 2.0 mm spokes, 100 kgf DS tension), K_lat ranges from **53.6 to 82.6 N/mm for 148** builds and **63.7 to 102.5 N/mm for 157** builds. The variation within each standard is as large as the difference between standards — meaning hub geometry and wheel size matter as much as the axle width.
 
 ### Does the ratio change with wheel size (27.5" vs 29")?
 

@@ -16,18 +16,23 @@ const { ALL_HUBS } = require('./hubs');
 // scaling method (an estimate; internal_width/depth/material are
 // verified against manufacturer/retailer spec pages).
 // ---------------------------------------------------------------------
-const RIMS = [
+const RIM_CATALOG = [
   { id: "r1", name: "DT Swiss XM 481", material: "alloy", internal_width: 30, depth: 21 },
   { id: "r2", name: "Race Face ARC Offset 30", material: "alloy", internal_width: 30, depth: 20 },
   { id: "r3", name: "Stan's Flow S2", material: "alloy", internal_width: 30, depth: 18.2 },
   { id: "r4", name: "We Are One Convert", material: "carbon", internal_width: 35, depth: 21 },
   { id: "r5", name: "ENVE M730", material: "carbon", internal_width: 30, depth: 27 },
-].map((r) => {
+];
+// carbonFactor is the carbon materialFactor: 1.35 by default, an
+// unmeasured assumption (see README); explorer.html offers 1.0 and 0.75 too.
+const DEFAULT_CARBON_FACTOR = 1.35;
+const rimsFor = (carbonFactor) => RIM_CATALOG.map((r) => {
   const REF_WIDTH = 30, REF_DEPTH = 21; // DT Swiss XM 481 -- the app's existing default rim
   const geometryFactor = (r.internal_width * r.depth) / (REF_WIDTH * REF_DEPTH);
-  const materialFactor = r.material === "carbon" ? 1.35 : 1.0;
+  const materialFactor = r.material === "carbon" ? carbonFactor : 1.0;
   return { ...r, rim_stiffness_index: +(geometryFactor * materialFactor).toFixed(3) };
 });
+const RIMS = rimsFor(DEFAULT_CARBON_FACTOR);
 
 // ---------------------------------------------------------------------
 // Build-spec betas 1-4. Each is a real, verifiable spec or a published
@@ -60,10 +65,10 @@ const WHEEL_SIZES = [
 const SPOKES_PER_SIDE_DIA = (d) => d; // same diameter both sides, kept as a named step for clarity
 const EIL_REF = 50, EIR_REF = 150, GJ_REF = 22, EA_RIM_REF = 115e5, MODES = 24;
 
-function buildRows() {
+function buildRows(carbonFactor = DEFAULT_CARBON_FACTOR) {
 const rows = [];
 for (const h of ALL_HUBS) {
-  for (const r of RIMS) {
+  for (const r of rimsFor(carbonFactor)) {
     for (const dia of SPOKE_DIAMETERS) {
       for (const count of SPOKE_COUNTS) {
         for (const tension of TENSIONS_KGF) {
@@ -106,7 +111,7 @@ for (const h of ALL_HUBS) {
 return rows;
 }
 
-module.exports = { buildRows };
+module.exports = { buildRows, DEFAULT_CARBON_FACTOR };
 
 // Run directly (`node build_dataset.js > dataset.json`): print the rows.
 // When require()d by build_explorer.js, only buildRows is exported.
