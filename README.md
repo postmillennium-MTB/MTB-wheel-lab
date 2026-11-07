@@ -93,19 +93,42 @@ Yes, but only very slightly — wheel size is a minor, second-order effect on th
 
 | Hub | 26" | 27.5" | 29" | 32" | spread |
 |---|---|---|---|---|---|
-| CK 157 SB Centerlock | 71.85% | 71.82% | 71.77% | 71.72% | 0.14 pp |
-| Project 321 G3 157x12 | 81.68% | 81.66% | 81.63% | 81.58% | 0.11 pp |
-| DMR Zone 148 | 55.64% | 55.61% | 55.57% | 55.51% | 0.14 pp |
+| CK Centerlock 157x12 | 71.85% | 71.82% | 71.77% | 71.72% | 0.14 pp |
+| Project 321 G3 157x12 | 83.24% | 83.22% | 83.18% | 83.14% | 0.10 pp |
+| DMR Zone Centerlock 148x12 | 55.64% | 55.61% | 55.57% | 55.51% | 0.14 pp |
+
+(32H, 2.0 mm spokes, 100 kgf DS, re-run 2026-11-07 on wheel-physics-core
+`1a8109f`. Project 321 G3 157x12 reads higher than the 81.6% this table
+showed before the October 2026 correction to that hub's offsets.)
 
 So going from 27.5" to 29" moves the ratio by roughly 0.05 percentage points — essentially nothing next to the tens-of-points spread you see just from switching hubs. The mechanism is real (larger wheel radius → both spoke bracing angles shrink slightly, and they don't shrink at exactly the same rate when the two flanges differ in offset or PCD, so the ratio drifts a hair), but it's swamped by hub geometry.
 
-Worth noting: wheel size matters much more for the other three metrics — K_lat, F_lat, buckling tension — because those depend on absolute spoke length and rim stiffness, not just the angle ratio. The README's line about "hub geometry and wheel size matter as much as axle width" is specifically about K_lat, not tension balance — it doesn't apply here with the same force.
+Worth noting: wheel size matters much more for the other three metrics — K_lat, F_lat, buckling tension — because those depend on absolute spoke length and rim stiffness, not just the angle ratio. The line above about "hub geometry and wheel size matter as much as axle width" is about K_lat, a stiffness, not tension balance.
+
+## Tabs
+
+| Tab | What it shows |
+|---|---|
+| COMPARE | The two chosen hubs side by side: tension balance, lateral stiffness (K_lat), lateral and radial strength (F_lat, F_rad, first spoke slack), buckling tension, the failure map and the spoke ring (both below), and a Quick compare link to the widget. |
+| SYMMETRY | Interactive demo of how flange offsets set drive/non-drive tension balance, with a self-playing callout tour. |
+| SIMULATION | A ride-load trace against each build's lateral strength, a slow-motion single impact, a deflection curve and an S-N fatigue curve. Stiffness and strength come from the engine; the ride loads, the past-first-slack part of the curves and the fatigue trend are illustrative, and the tab says so. |
+| DEEP DIVE | The load envelope (below) and further detail charts for the two builds. |
+| TENSION BALANCE | NDS/DS tension balance for every hub in the catalogue, with the rim-offset slider applied. |
+| HUB SPECS | Sortable spec sheet of all 30 hubs: the measured flange offsets and diameters, plus flange spacing, bracing angles and tension balance derived from them. |
+| TORSION | Pedal and brake torque. A torque spoke ring (strength: each spoke's tension under a torque, up to first slack) and wind-up stiffness (stiffness: torque per degree of rim rotation, collapsed by default). |
+| INSIGHTS | Four further results, each with its study cited in MLA style and an EQUATION button: spokes sharing a hit (Ford, after Hetényi, Smith, and Pippard & Francis), tension softening of lateral stiffness (Ford), per-shape buckling tension (Ford, Papadopoulos & Balogun 2016), and spoke pitch with a playable keyboard (Allen, *Bike Tech*, 1984). |
+
+Each lateral-strength chart carries a short ISO 4210-7 note (`IsoNote.jsx`):
+the standard's static test checks a rim for permanent bending under a
+sideways load, while F_lat is the earlier, elastic first-slack limit, so the
+two are different thresholds.
 
 ## Project layout
 
 ```
 src/
-  themes.js              four color themes + theme-cycling helper
+  themes.js              four color themes + theme-cycling helper; colorblind rules
+                         in CLAUDE.md
   data.js                hub databases, rim sizes, ride/impact scenario data
   physics.js             the wheel-strength math (see note below)
   theme-state.js          shared "current theme" binding used by sibling components
@@ -120,6 +143,16 @@ src/
     RideTooltipContent.jsx  custom Recharts tooltip
     SymmetryTab.jsx          the SYMMETRY tab's interactive demo
     AnnotationOverlay.jsx    SYMMETRY tab's self-playing callout tour
+    InsightsTab.jsx          INSIGHTS tab (see Tabs above)
+    TorsionTab.jsx           TORSION tab: torque spoke ring + wind-up stiffness
+    TensionBalanceTab.jsx    TENSION BALANCE tab
+    HubSpecsTab.jsx          HUB SPECS tab
+    FailureMap.jsx           COMPARE's failure map (see below)
+    SpokeRing.jsx            COMPARE's spoke ring (see below)
+    LoadEnvelope.jsx         DEEP DIVE's load envelope (see below)
+    FailureViews.jsx, HubFade.jsx   shared hub toggle + Play crossfade for those two
+    IsoNote.jsx              ISO 4210-7 note under lateral-strength charts
+    InfoTip.jsx, Caption.jsx, PercentIcon.jsx   small shared UI pieces
     PixelFox.jsx             the easter-egg pixel-art fox
     ErrorBoundary.jsx        NEW — catches crashes, shows a recoverable fallback
 ```
@@ -158,6 +191,62 @@ npm test            # physics regression tests (fast, no build needed)
 npm run test:smoke  # mounts the built app in a simulated browser, clicks every tab
 npm run test:all    # build + both test suites
 ```
+
+## Failure map
+
+The COMPARE tab ends with a FAILURE MAP (`src/components/FailureMap.jsx`):
+load against drive-side spoke tension for the two selected hubs, straight
+down or sideways. The solid line is the engine's first-slack load (`F_rad` /
+`F_lat`, Ford's discrete-spoke Mode Matrix). The dashed line is `F_taco`,
+Ford & Balogun (2017) Eq. 2, a rough rim-buckling estimate that applies to
+straight-down loads only; it comes from `wheel-physics-core` along with
+`K_lat0` and `R_rim`. The sweeps (40 kgf to each hub's buckling tension, 3 kgf
+steps, about 100 engine calls) run after the tab paints, and use the selected
+rim size, spoke count and rim offset. The stat under the chart is the area of
+one hub's shaded zone against the other's, from 40 kgf to each hub's buckling
+tension.
+
+The map shares its HUB toggle and Play crossfade with the spoke ring below
+it (`FailureViews.jsx` holds the state, `HubFade.jsx` the hook and
+controls), so either section's controls move both.
+
+## Spoke ring and load envelope
+
+Both draw from `wheel-physics-core`'s per-spoke output
+(`calc(..., { spokes: true })`, `spokeTensions`, `firstSlackCombined`): each
+spoke's tension change per unit point load from Ford's discrete-spoke Mode
+Matrix, checked against his bike-wheel-calc in that repo's
+`validation/spokes/`. `spokeModel()` in `physics.js` runs it for one build and
+maps the engine's tighter/looser sides back to the real drive side when
+`tightSideFirst()` has swapped them.
+
+- **SPOKE RING** (COMPARE, `SpokeRing.jsx`): every spoke's tension under one
+  hit at the tire, straight down or sideways either way, with a strip chart
+  of the same tensions by distance from the hit. One load in kgf applies to
+  both hubs, so Play shows one going slack before the other. Exact in Ford's
+  model up to first slack; the slider runs to 130% of it, and past first
+  slack the readout says the picture is an extrapolation.
+- **LOAD ENVELOPE** (DEEP DIVE, `LoadEnvelope.jsx`, its own hub picker): every
+  combination of straight-down and sideways load before the first spoke goes
+  slack, traced over 720 directions. Drag the dot (mouse anywhere, finger on
+  the dot) or use the sliders.
+
+Both sections collapse with their title bar and remember that choice in the
+browser, and both show the buckling note instead of a chart past buckling.
+
+## Links between the Lab and the 148 vs 157 widget
+
+The URL hash carries the build, in the format defined by
+`wheel-physics-core/js/build-link.js` (shared with
+`wheel-comparison-widget2`): `#compare&h1=h6&h2=h7&w1=29&td1=120&ns=32`,
+where `h1` is the 148x12 hub, `h2` the 157x12 hub, `w1` the rim size, `td1`
+the drive-side tension in kgf and `ns` the spoke count. `App.jsx` reads it
+once at load (missing or invalid values fall back to the defaults) and keeps
+the hash in step with the settings afterwards, so the address bar is always a
+link to the build on screen. The COMPARE tab's "Quick compare" link hands the
+same build to the widget; the widget's "Explore why in the Lab" link does the
+reverse. The smoke test covers loading a build link, the Quick compare
+address, and a mangled link.
 
 ## Deploying
 
