@@ -7,6 +7,28 @@ Strength Lab). See `README.md` for how the app is built: the source lives in
 The wheel-strength math comes from Matthew Ford's Mode Matrix method via
 `wheel-physics-core`; credit him whenever this tool's numbers are used.
 
+## Working rules
+
+- **Source and built file change together.** Edit inside
+  `wheel-lab-source.zip` (including its own `README.md`, which is the same
+  file as the root `README.md`: keep the two identical), rebuild, and commit
+  the new `index.html` in the same change. CI fails if `index.html` is not
+  byte-for-byte a fresh build of the zip.
+- **Don't edit the physics here.** New or changed math goes into
+  `wheel-physics-core` first, validated against Ford's `bike-wheel-calc`
+  there; then move the commit pin in `package.json` and run
+  `npm run test:all`.
+- **Stiffness and strength are different words.** Stiffness (`K_lat`,
+  `K_rad`, `K_tor`) is load per unit deflection; strength (`F_lat`, `F_rad`,
+  `F_taco`) is the load at which something gives out. Never use one for the
+  other in tab text, chart labels or docs.
+- **Cite Ford's thesis by its title page:** Ford, M.T. (2018), *Reinventing
+  the Wheel: Stress Analysis, Stability, and Optimization of the Bicycle
+  Wheel*, PhD thesis, Northwestern University.
+- **Illustrative parts stay labelled.** The SIMULATION tab's ride loads,
+  past-first-slack curves and fatigue trend are not engine outputs; keep
+  them marked as illustrative wherever they appear.
+
 ## Color accessibility (colorblind-safe)
 
 Every color scheme and theme must stay readable for colorblind viewers
