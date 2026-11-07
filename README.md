@@ -94,7 +94,7 @@ Yes, but only very slightly — wheel size is a minor, second-order effect on th
 | Hub | 26" | 27.5" | 29" | 32" | spread |
 |---|---|---|---|---|---|
 | CK 157 SB Centerlock | 71.85% | 71.82% | 71.77% | 71.72% | 0.14 pp |
-| Project 321 G3 157 SB | 81.68% | 81.66% | 81.63% | 81.58% | 0.11 pp |
+| Project 321 G3 157x12 | 81.68% | 81.66% | 81.63% | 81.58% | 0.11 pp |
 | DMR Zone 148 | 55.64% | 55.61% | 55.57% | 55.51% | 0.14 pp |
 
 So going from 27.5" to 29" moves the ratio by roughly 0.05 percentage points — essentially nothing next to the tens-of-points spread you see just from switching hubs. The mechanism is real (larger wheel radius → both spoke bracing angles shrink slightly, and they don't shrink at exactly the same rate when the two flanges differ in offset or PCD, so the ratio drifts a hair), but it's swamped by hub geometry.
