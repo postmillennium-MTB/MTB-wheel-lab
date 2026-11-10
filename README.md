@@ -109,19 +109,73 @@ Worth noting: wheel size matters much more for the other three metrics — K_lat
 
 | Tab | What it shows |
 |---|---|
-| COMPARE | The two chosen hubs side by side: tension balance, lateral stiffness (K_lat), lateral and radial strength (F_lat, F_rad, first spoke slack), buckling tension, the failure map and the spoke ring (both below), and a Quick compare link to the widget. |
-| SYMMETRY | Interactive demo of how flange offsets set drive/non-drive tension balance, with a self-playing callout tour. |
-| SIMULATION | A ride-load trace against each build's lateral strength, a slow-motion single impact, a deflection curve and an S-N fatigue curve. Stiffness and strength come from the engine; the ride loads, the past-first-slack part of the curves and the fatigue trend are illustrative, and the tab says so. |
+| COMPARE | The two chosen hubs side by side: tension balance, lateral stiffness (K_lat), lateral and radial strength (F_lat, F_rad, first spoke slack), buckling tension, a yardstick card (each strength as a multiple of the Rider+bike weight), the failure map and the spoke ring (both below), a Quick compare link to the widget, and the invitation to the Start here tour (below). |
+| SYMMETRY | One synthetic wheel (60 mm total flange width) whose flanges slide off-center while its average spoke tension is held constant, so balance is the only variable; with a self-playing callout tour. See "The SYMMETRY tab's tension" below. |
+| SIMULATION | An illustrative ride-load trace against each build's lateral strength, a slow-motion single impact, a deflection curve and an S-N fatigue curve. Stiffness and strength come from the engine; the ride loads, the past-first-slack part of the curves and the fatigue trend are illustrative, and the tab says so. |
 | DEEP DIVE | The load envelope (below) and further detail charts for the two builds. |
 | TENSION BALANCE | NDS/DS tension balance for every hub in the catalogue, with the rim-offset slider applied. |
 | HUB SPECS | Sortable spec sheet of all 30 hubs: the measured flange offsets and diameters, plus flange spacing, bracing angles and tension balance derived from them. |
 | TORSION | Pedal and brake torque. A torque spoke ring (strength: each spoke's tension under a torque, up to first slack) and wind-up stiffness (stiffness: torque per degree of rim rotation, collapsed by default). |
 | INSIGHTS | Four further results, each with its study cited in MLA style and an EQUATION button: spokes sharing a hit (Ford, after Hetényi, Smith, and Pippard & Francis), tension softening of lateral stiffness (Ford), per-shape buckling tension (Ford, Papadopoulos & Balogun 2016), and spoke pitch with a playable keyboard (Allen, *Bike Tech*, 1984). |
 
-Each lateral-strength chart carries a short ISO 4210-7 note (`IsoNote.jsx`):
-the standard's static test checks a rim for permanent bending under a
-sideways load, while F_lat is the earlier, elastic first-slack limit, so the
-two are different thresholds.
+The failure map, and the SIMULATION and DEEP DIVE tabs (once each, at the
+foot of the tab), carry a short ISO 4210-7 note (`IsoNote.jsx`): the
+standard's static test checks a rim for permanent bending under a sideways
+load, while F_lat is the earlier, elastic first-slack limit, so the two are
+different thresholds.
+
+### The SYMMETRY tab's tension
+
+The tension slider sets drive-side tension. On a real dished wheel the
+non-drive side then sits well below it, so a centered wheel given the slider
+value on both sides would carry about 20% more total tension than any real
+wheel at that setting. At the default build that put the tab's centered wheel
+at 81% of the rim's buckling tension and past its own lateral-strength peak
+(24.3 kgf at 120 kgf against 26.3 at 100), and dishing it then changed total
+tension as well as balance. The tab therefore holds the average tension
+constant at 5/6 of the slider value (`symmetryBuild` in `physics.js`): 5/6 is
+the average of a wheel whose non-drive side is at two thirds of its drive
+side, which is about where the catalogue's hubs sit on a 29" wheel (148x12
+median 64%, 157x12 median 69%). The drive side's tension for a given offset
+follows from the engine's own NDS/DS ratio. With the average fixed, the
+distance from buckling is the same at every offset and lateral strength falls
+at every step of dish, at every setting the controls can reach short of
+buckling (asserted in `test/physics.test.js`).
+
+### The tension slider's ticks
+
+Under the Spoke tension slider, a tick and a caption give the drive-side
+tension at which each selected hub's lateral strength peaks
+(`peakLateralTension` in `physics.js`, a search on the engine's own F_lat).
+Past that tension the wheel is close enough to buckling that more tension
+lowers lateral strength. Ford's thesis (ch. 5) gives a rule of thumb for this
+optimum, T_opt = 0.5 T_c, from an approximation he describes as rough and
+conservative; the engine's peak for the default builds is nearer 0.7 T_c in
+average-tension terms. The ticks show on the tabs that use the two selected
+hubs.
+
+### Start here tour
+
+`Tour.jsx` holds a five-stop guided path for a first visit: the verdict
+(COMPARE), why balance drives it (SYMMETRY), what gives first (the failure
+map), mixed loads (the load envelope) and what margin looks like on a ride
+(SIMULATION). Each stop opens its tab, scrolls to its chart and says what to
+look at; the reader moves with Back and Next. The invitation sits at the top
+of COMPARE until started or dismissed (remembered in the browser), and a
+link in the footer starts the tour at any time.
+
+### Colors
+
+A hub has one color in a theme, used for everything that belongs to that hub,
+including its first-slack threshold on the SIMULATION chart; the ride-load
+trace there is drawn in the text color, and the 148 threshold is dashed.
+Roly-Poly's 148 color is a dark raspberry (#A21C5C): the lighter pink it
+replaced had the same lightness as the 157 teal and merged with it under
+deuteranopia. Known and not yet fixed: Roly-Poly's teal is 3.3:1 against the
+panel background, short of the 4.5:1 that CLAUDE.md asks of small text; No
+Quarter's 148 gold and its slack line are close under deuteranopia, and
+Paperboy's 157 orange and its slack line under tritanopia (in the failure map
+the hub color is only the title, the lines are labelled).
 
 ## Project layout
 
@@ -138,7 +192,9 @@ src/
     WheelDiagram.jsx       MTB hub cross-section + rim-channel SVG diagram
     Section.jsx             collapsible panel
     ToggleGroup.jsx         segmented button control
-    Slider.jsx               labeled range input
+    Slider.jsx               labeled range input, with optional marks under the track
+    Tour.jsx                 the five-stop Start here tour
+    Yardstick.jsx            COMPARE's strength-vs-rider-weight card
     MetricBar.jsx            paired 148/157 comparison bar
     RideTooltipContent.jsx  custom Recharts tooltip
     SymmetryTab.jsx          the SYMMETRY tab's interactive demo
