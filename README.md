@@ -159,8 +159,9 @@ hubs.
 `Tour.jsx` holds a five-stop guided path for a first visit: the verdict
 (COMPARE), why balance drives it (SYMMETRY), what gives first (the failure
 map), mixed loads (the load envelope) and what margin looks like on a ride
-(SIMULATION). Each stop opens its tab, scrolls to its chart and says what to
-look at; the reader moves with Back and Next. The invitation sits at the top
+(SIMULATION). Each stop opens its tab, scrolls to its chart, opens the chart
+if the reader had minimized it (without changing their saved show/hide
+choice), names it and says what to look at; the reader moves with Back and Next. The invitation sits at the top
 of COMPARE until started or dismissed (remembered in the browser), and a
 link in the footer starts the tour at any time.
 
@@ -195,6 +196,7 @@ src/
     Slider.jsx               labeled range input, with optional marks under the track
     Tour.jsx                 the five-stop Start here tour
     Yardstick.jsx            COMPARE's strength-vs-rider-weight card
+    ShareButton.jsx          header share button (icon only): share sheet, or copies the build link
     MetricBar.jsx            paired 148/157 comparison bar
     RideTooltipContent.jsx  custom Recharts tooltip
     SymmetryTab.jsx          the SYMMETRY tab's interactive demo
