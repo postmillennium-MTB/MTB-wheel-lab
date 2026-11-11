@@ -15,7 +15,7 @@ beta6  = rim_internal_width   : VERIFIED rim internal width (mm)
 beta7  = spoke_diameter       : VERIFIED spoke gauge, mm (1.8 or 2.0)
 beta8  = spoke_count          : VERIFIED spoke count (28 or 32)
 beta9  = tension_kgf          : VERIFIED build tension setpoint (90 or 120 kgf)
-beta10 = wheel_erd            : VERIFIED effective rim diameter, mm (559=27.5", 600=29")
+beta10 = wheel_erd            : VERIFIED effective rim diameter, mm (567=27.5", 605=29"; sourced, see README)
 
 Rows repeat each hub 80 times (5 rims x 2^4 build variants), so residuals
 are clustered by hub, not independent -- SEs below are clustered by

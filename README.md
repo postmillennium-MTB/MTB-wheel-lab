@@ -84,8 +84,8 @@ smeared shortcut; wheel-physics-core's `validation/strength/README.md`
 records why it was replaced. A build at or past its buckling tension has no
 meaningful strength figure, and the COMPARE tab says so instead of showing
 one. With the measured rim below, no hub in the catalogue gets there inside
-the tension slider's range (the closest, a 32" wheel at 125 kgf, sits at 53%
-of its buckling tension), but the guard stays.
+the tension slider's range (the closest, a 32" wheel with 36 spokes at
+125 kgf, sits at 50% of its buckling tension), but the guard stays.
 
 ### The rim
 
@@ -117,16 +117,37 @@ now.
 Until November 2026 the Lab used EI_lat 50, EI_rad 150, GJ 22 N·m² and EA
 11.5 MN, an unsourced placeholder softer laterally than any rim Ford
 measured (the softest, a 26" Alex Y2000, is 130 N·m²). On the default build
-(29", 28 spokes, 120 kgf, CK Centerlock pair) the measured rim roughly
-doubles lateral strength (F_lat 20.7 → 38.7 kgf for 148, 26.4 → 46.3 for
-157) and lateral stiffness (K_lat 59.4 → 107.5 and 77.0 → 133.5 N/mm), and
-moves the wheel from 61–67% of its buckling tension to 28–33%. Radial
-strength (F_rad) falls slightly, 212 → 197 and 220 → 210 kgf. The
-SIMULATION tab's illustrative ride loads were rescaled with it (see
+(29" at the then-current ERD of 600 mm, 28 spokes, 120 kgf, CK Centerlock
+pair) the measured rim roughly doubled lateral strength (F_lat 20.7 → 38.7
+kgf for 148, 26.4 → 46.3 for 157) and lateral stiffness (K_lat 59.4 → 107.5
+and 77.0 → 133.5 N/mm), and moved the wheel from 61–67% of its buckling
+tension to 28–33%. Radial strength (F_rad) fell slightly, 212 → 197 and
+220 → 210 kgf. With the sourced ERD of 605 mm for 29" (below) the default
+build reads F_lat 38.3 and 45.8 kgf, K_lat 104.6 and 130.0 N/mm, F_rad 196
+and 209 kgf, at 29–33% of buckling tension. The SIMULATION tab's
+illustrative ride loads were rescaled with the rim change (see
 `RIDE_LOAD_SCALE` in `src/data.js`) so they keep the same relation to the
 default build's lateral strength.
 
-Across the 30 hubs in the catalogue (`src/data.js`) at standard build conditions (29 in, 32H, 2.0 mm spokes, 100 kgf DS tension, the measured TK540 rim), K_lat ranges from **100.2 to 137.4 N/mm for 148** builds and **115.6 to 167.7 N/mm for 157** builds. The variation within each standard is as large as the difference between standards — meaning hub geometry and wheel size matter as much as the axle width.
+### Effective rim diameter by wheel size
+
+The wheel-size selector sets the effective rim diameter (ERD, the diameter
+the spoke nipples seat at), one value per size, each from a manufacturer's
+published spec (`RIM_ERD_BY_SIZE` in `src/data.js`):
+
+| Wheel size | ERD (mm) | Source |
+|---|---|---|
+| 26" | 538 | DT Swiss FR 560 26" ([spec page](https://www.dtswiss.com/en/components/rims-mtb/free-ride/fr-560), "Reference diameter ERD 538 mm") |
+| 27.5" | 567 | Tenet Coven AL rim ([product page](https://www.ridetenet.com/products/coven-al-rim), "ERD 567 mm (27.5) / 605 mm (29)") |
+| 29" | 605 | Tenet Coven AL rim, same page. Reserve 30\|XC lists 599 mm for 29" ([product page](https://reservewheels.com/products/30-xc)) |
+| 32" | 649 | Reserve 30\|XC 32" ([product page](https://reservewheels.com/products/30-xc), "32\" ERD 649mm") |
+
+These are single typical values, not the TK540's own ERD, and real rims
+differ by a few millimetres (the two 29" figures above are 6 mm apart, which
+moves F_lat about 1.3% and lateral stiffness about 3%). Until November 2026
+the table read 534 / 559 / 600 / 667 mm with no source recorded.
+
+Across the 30 hubs in the catalogue (`src/data.js`) at standard build conditions (29 in, 32H, 2.0 mm spokes, 100 kgf DS tension, the measured TK540 rim), K_lat ranges from **97.5 to 133.8 N/mm for 148** builds and **112.5 to 163.4 N/mm for 157** builds. The variation within each standard is as large as the difference between standards — meaning hub geometry and wheel size matter as much as the axle width.
 
 ### Does the ratio change with wheel size (27.5" vs 29")?
 
@@ -134,15 +155,15 @@ Yes, but only very slightly — wheel size is a minor, second-order effect on th
 
 | Hub | 26" | 27.5" | 29" | 32" | spread |
 |---|---|---|---|---|---|
-| CK Centerlock 157x12 | 71.85% | 71.82% | 71.77% | 71.72% | 0.14 pp |
-| Project 321 G3 157x12 | 83.24% | 83.22% | 83.18% | 83.14% | 0.10 pp |
-| DMR Zone Centerlock 148x12 | 55.64% | 55.61% | 55.57% | 55.51% | 0.14 pp |
+| CK Centerlock 157x12 | 71.85% | 71.81% | 71.77% | 71.73% | 0.12 pp |
+| Project 321 G3 157x12 | 83.24% | 83.21% | 83.18% | 83.15% | 0.09 pp |
+| DMR Zone Centerlock 148x12 | 55.64% | 55.60% | 55.56% | 55.52% | 0.12 pp |
 
-(32H, 2.0 mm spokes, 100 kgf DS, re-run 2026-11-07 on wheel-physics-core
-`1a8109f`. Project 321 G3 157x12 reads higher than the 81.6% this table
+(32H, 2.0 mm spokes, 100 kgf DS, re-run 2026-11-11 with the sourced ERDs
+on wheel-physics-core `1a8109f`. Project 321 G3 157x12 reads higher than the 81.6% this table
 showed before the October 2026 correction to that hub's offsets.)
 
-So going from 27.5" to 29" moves the ratio by roughly 0.05 percentage points — essentially nothing next to the tens-of-points spread you see just from switching hubs. The mechanism is real (larger wheel radius → both spoke bracing angles shrink slightly, and they don't shrink at exactly the same rate when the two flanges differ in offset or PCD, so the ratio drifts a hair), but it's swamped by hub geometry.
+So going from 27.5" to 29" moves the ratio by roughly 0.04 percentage points — essentially nothing next to the tens-of-points spread you see just from switching hubs. The mechanism is real (larger wheel radius → both spoke bracing angles shrink slightly, and they don't shrink at exactly the same rate when the two flanges differ in offset or PCD, so the ratio drifts a hair), but it's swamped by hub geometry.
 
 Worth noting: wheel size matters much more for the other three metrics — K_lat, F_lat, buckling tension — because those depend on absolute spoke length and rim stiffness, not just the angle ratio. The line above about "hub geometry and wheel size matter as much as axle width" is about K_lat, a stiffness, not tension balance.
 
@@ -193,8 +214,8 @@ Past that tension the wheel is close enough to buckling that more tension
 lowers lateral strength. Ford's thesis (ch. 5) gives a rule of thumb for this
 optimum, T_opt = 0.5 T_c, from an approximation he describes as rough and
 conservative; the engine's peak for the default builds is nearer 0.65 T_c in
-average-tension terms. On the measured TK540 rim those peaks (237 kgf for the
-default 148 hub, 273 kgf for the 157) lie beyond the slider's 125 kgf, so
+average-tension terms. On the measured TK540 rim those peaks (233 kgf for the
+default 148 hub, 269 kgf for the 157) lie beyond the slider's 125 kgf, so
 the ticks sit off the track and the caption still names both values: across
 the slider's whole range, more tension means more lateral strength. The
 ticks show on the tabs that use the two selected hubs.
