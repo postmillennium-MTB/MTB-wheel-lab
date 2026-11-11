@@ -63,7 +63,12 @@ const WHEEL_SIZES = [
 ];
 
 const SPOKES_PER_SIDE_DIA = (d) => d; // same diameter both sides, kept as a named step for clarity
-const EIL_REF = 50, EIR_REF = 150, GJ_REF = 22, EA_RIM_REF = 115e5, MODES = 24;
+// Base rim (rim_stiffness_index = 1.00): the DT Swiss TK540 as measured by
+// Ford, Peng & Balogun (2018) -- Ford's rim stiffness library,
+// https://bicyclewheel.info/rim-stiffness/ -- the same rim the app uses
+// (PHYS_CONSTANTS in src/data.js). EA is from the rim's 550 g mass, as in
+// Ford's wheel-app. Until Nov 2026 this base was an unsourced 50/150/22.
+const EIL_REF = 260, EIR_REF = 211, GJ_REF = 75, EA_RIM_REF = 72e5, MODES = 24;
 
 function buildRows(carbonFactor = DEFAULT_CARBON_FACTOR) {
 const rows = [];

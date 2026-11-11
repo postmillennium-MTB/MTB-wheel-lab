@@ -83,9 +83,50 @@ uses his smeared-spoke formulas. Until October 2026 strength also used a
 smeared shortcut; wheel-physics-core's `validation/strength/README.md`
 records why it was replaced. A build at or past its buckling tension has no
 meaningful strength figure, and the COMPARE tab says so instead of showing
-one (it happens on 32" rims at high tension).
+one. With the measured rim below, no hub in the catalogue gets there inside
+the tension slider's range (the closest, a 32" wheel at 125 kgf, sits at 53%
+of its buckling tension), but the guard stays.
 
-Across the 30 hubs in the catalogue (`src/data.js`) at standard build conditions (29 in, 32H, 2.0 mm spokes, 100 kgf DS tension), K_lat ranges from **53.6 to 82.6 N/mm for 148** builds and **63.7 to 102.5 N/mm for 157** builds. The variation within each standard is as large as the difference between standards — meaning hub geometry and wheel size matter as much as the axle width.
+### The rim
+
+Every build in the Lab uses one rim, held constant so that the comparisons
+isolate the hub: the **DT Swiss TK540, as measured by Matthew Ford** with the
+acoustic method in Ford, Peng and Balogun (2018), "Acoustic modal testing
+of bicycle rims" (archived in wheel-physics-core as
+`papers/ford-peng-balogun-2018-acoustic-modal-testing.pdf`). The values come
+from Ford's [rim stiffness library](https://bicyclewheel.info/rim-stiffness/):
+
+| Property | Value |
+|---|---|
+| Lateral bending stiffness, EI_lat | 260 N·m² |
+| Radial bending stiffness, EI_rad | 211 N·m² |
+| Torsional stiffness, GJ | 75 N·m² |
+| Mass | 550 g |
+| Axial stiffness, EA | 7.2 MN (not in the library; from the mass, as Ford's own wheel-app does: E·m / (2πrρ), alloy, 622 mm bead seat) |
+
+Ford measured ten other rims the same way, all listed in the same library:
+Alex ALX-295, X404 and Y2000 (26" and 700C), DT Swiss R460, H Plus Son
+TB14, Mavic A119, Stan's Grail MK3, and Sun-Ringle CR18 (20" and 700C).
+Seven of them are also the rim presets in Ford's wheel-app. His paper
+reports the method agreeing with direct mechanical tests to within 8%
+(radial) and 11% (lateral and torsional). None of the eleven is a wide
+modern MTB rim; the TK540 is used because it is a current DT Swiss rim in
+the middle of the measured range. The Lab does not offer a rim choice for
+now.
+
+Until November 2026 the Lab used EI_lat 50, EI_rad 150, GJ 22 N·m² and EA
+11.5 MN, an unsourced placeholder softer laterally than any rim Ford
+measured (the softest, a 26" Alex Y2000, is 130 N·m²). On the default build
+(29", 28 spokes, 120 kgf, CK Centerlock pair) the measured rim roughly
+doubles lateral strength (F_lat 20.7 → 38.7 kgf for 148, 26.4 → 46.3 for
+157) and lateral stiffness (K_lat 59.4 → 107.5 and 77.0 → 133.5 N/mm), and
+moves the wheel from 61–67% of its buckling tension to 28–33%. Radial
+strength (F_rad) falls slightly, 212 → 197 and 220 → 210 kgf. The
+SIMULATION tab's illustrative ride loads were rescaled with it (see
+`RIDE_LOAD_SCALE` in `src/data.js`) so they keep the same relation to the
+default build's lateral strength.
+
+Across the 30 hubs in the catalogue (`src/data.js`) at standard build conditions (29 in, 32H, 2.0 mm spokes, 100 kgf DS tension, the measured TK540 rim), K_lat ranges from **100.2 to 137.4 N/mm for 148** builds and **115.6 to 167.7 N/mm for 157** builds. The variation within each standard is as large as the difference between standards — meaning hub geometry and wheel size matter as much as the axle width.
 
 ### Does the ratio change with wheel size (27.5" vs 29")?
 
@@ -129,10 +170,11 @@ different thresholds.
 The tension slider sets drive-side tension. On a real dished wheel the
 non-drive side then sits well below it, so a centered wheel given the slider
 value on both sides would carry about 20% more total tension than any real
-wheel at that setting. At the default build that put the tab's centered wheel
-at 81% of the rim's buckling tension and past its own lateral-strength peak
-(24.3 kgf at 120 kgf against 26.3 at 100), and dishing it then changed total
-tension as well as balance. The tab therefore holds the average tension
+wheel at that setting. On the Lab's earlier placeholder rim (see "The rim")
+that put the tab's centered wheel at 81% of the rim's buckling tension and
+past its own lateral-strength peak (24.3 kgf at 120 kgf against 26.3 at
+100); on the measured TK540 it would sit at 40%. Either way, dishing it
+would change total tension as well as balance. The tab therefore holds the average tension
 constant at 5/6 of the slider value (`symmetryBuild` in `physics.js`): 5/6 is
 the average of a wheel whose non-drive side is at two thirds of its drive
 side, which is about where the catalogue's hubs sit on a 29" wheel (148x12
@@ -150,9 +192,12 @@ tension at which each selected hub's lateral strength peaks
 Past that tension the wheel is close enough to buckling that more tension
 lowers lateral strength. Ford's thesis (ch. 5) gives a rule of thumb for this
 optimum, T_opt = 0.5 T_c, from an approximation he describes as rough and
-conservative; the engine's peak for the default builds is nearer 0.7 T_c in
-average-tension terms. The ticks show on the tabs that use the two selected
-hubs.
+conservative; the engine's peak for the default builds is nearer 0.65 T_c in
+average-tension terms. On the measured TK540 rim those peaks (237 kgf for the
+default 148 hub, 273 kgf for the 157) lie beyond the slider's 125 kgf, so
+the ticks sit off the track and the caption still names both values: across
+the slider's whole range, more tension means more lateral strength. The
+ticks show on the tabs that use the two selected hubs.
 
 ### Start here tour
 
