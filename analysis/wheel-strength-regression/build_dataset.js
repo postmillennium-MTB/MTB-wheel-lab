@@ -56,10 +56,12 @@ const SPOKE_COUNTS = [28, 32];
 const TENSIONS_KGF = [90, 120];
 // 4. Wheel size (ERD, mm) -- 27.5" and 29" only; this hub/rim catalogue
 //    is trail/enduro-oriented and 26"/32"(fat) aren't realistic options
-//    for it. ERD values from the app's own RIM_ERD_BY_SIZE table.
+//    for it. ERD values from the app's own RIM_ERD_BY_SIZE table, which
+//    takes them from manufacturers' published specs (Tenet Coven AL:
+//    "ERD 567 mm (27.5) / 605 mm (29)"). Until Nov 2026: 559 / 600, unsourced.
 const WHEEL_SIZES = [
-  { label: "27.5", erd: 559 },
-  { label: "29", erd: 600 },
+  { label: "27.5", erd: 567 },
+  { label: "29", erd: 605 },
 ];
 
 const SPOKES_PER_SIDE_DIA = (d) => d; // same diameter both sides, kept as a named step for clarity
