@@ -302,7 +302,8 @@ src/
     Yardstick.jsx            COMPARE's strength-vs-rider-weight card
     WhatIfBar.jsx            pinned build controls + strength/stiffness change chips
     CompareThese.jsx         "Compare these two" button for the hub tables
-    ShareButton.jsx          header share button (icon only): share sheet, or copies the build link
+    ShareButton.jsx          header "Share link" button (icon only): share sheet, or copies the build link
+    CopyResultButton.jsx     header "Copy result" button (icon only): the build as plain text, wording from wheel-physics-core/js/share-text.js
     MetricBar.jsx            paired 148/157 comparison bar
     RideTooltipContent.jsx  custom Recharts tooltip
     SymmetryTab.jsx          the SYMMETRY tab's interactive demo
@@ -411,6 +412,14 @@ link to the build on screen. The COMPARE tab's "Quick compare" link hands the
 same build to the widget; the widget's "Explore why in the Lab" link does the
 reverse. The smoke test covers loading a build link, the Quick compare
 address, and a mangled link.
+
+Beside the header's "Share link" button, "Copy result" copies the build on
+screen as plain text for places that show no link preview, such as a
+Pinkbike comment: lateral strength and lateral stiffness on separate,
+labelled lines, the build (with the rim offset when it is not zero), a
+credit to Ford's Mode Matrix method, and the link. The wording is
+`wheel-physics-core/js/share-text.js`, which the widget's "Copy result"
+uses too, so a pasted result reads the same from either tool.
 
 ## Deploying
 
