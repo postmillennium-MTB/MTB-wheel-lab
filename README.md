@@ -298,6 +298,23 @@ already checked spoke by spoke against bike-wheel-calc, including combined
 down + sideways loads (`validation/spokes/`, "combined"); no new engine
 output.
 
+### Hits on the load envelope (SIMULATION)
+
+SIMULATION's first panel used to roll a random "chaos" ride, a scripted load
+trace against the two lateral-strength lines. It now plots the four named
+hits (rock strike, huck to flat, rock garden, cased a double) as numbered
+dots on the chosen hub's load envelope (`HitMap.jsx`, reusing DEEP DIVE's
+envelope chart). Each hit has a sideways part (`refPeak`) and a straight-down
+part (`refDown`) in `IMPACT_SCENARIOS`, scaled with rider + bike weight the
+same way as the slow-mo hit. Inside or outside the shape is exact in Ford's
+model; the hit sizes are estimates, not measured trail loads, and the panel
+says so. Inside is a filled circle, outside an open diamond, so the outcome
+does not rest on color. All hits push toward the non-drive side, where the
+envelope is narrower. The slow-mo panel plays only a hit's sideways part and
+says so, which is why a hit can hold there and still slacken a spoke on the
+envelope. The old ride's state and helpers (`simulateRideLoad`, etc.) are
+left in place, unused, for now.
+
 ### Colors
 
 A hub has one color in a theme, used for everything that belongs to that hub,
@@ -333,6 +350,7 @@ src/
     CompareThese.jsx         "Compare these two" button for the hub tables
     MyWheelBar.jsx           COMPARE "My wheel" bar: one saved build in this browser (wheel-physics-core/js/my-wheel.js)
     PushWheel.jsx            COMPARE's push-the-wheel (both wheels, one sideways push) + shared face-on ring
+    HitMap.jsx               SIMULATION's named hits on the load envelope
     ShareButton.jsx          header "Share link" button (icon only): share sheet, or copies the build link
     CopyResultButton.jsx     header "Copy result" button (icon only): the build as plain text, wording from wheel-physics-core/js/share-text.js
     MetricBar.jsx            paired 148/157 comparison bar
