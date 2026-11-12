@@ -323,6 +323,15 @@ rows, which took most of a phone's first screen. The chosen tab scrolls into
 the middle of the row, including when a link opens straight onto a tab.
 Wider screens are unchanged.
 
+### Drag to dish (SYMMETRY)
+
+On SYMMETRY the hub in the wheel drawing can be dragged sideways (mouse or
+finger) to slide the flanges off-center; it moves the same Offset slider in
+0.5 mm steps from 0 to 15 mm, so every number on the tab follows. The drag
+only changes the offset; the strength numbers are the tab's existing
+`symmetryBuild` outputs from Ford's Mode Matrix engine. Vertical swipes still
+scroll the page (`touch-action: pan-y`).
+
 ### Colors
 
 A hub has one color in a theme, used for everything that belongs to that hub,
