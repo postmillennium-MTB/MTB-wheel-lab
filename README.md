@@ -263,6 +263,7 @@ holds one 148 and one 157 hub, so the newest pick of each standard is used;
 a standard with no pick keeps the hub COMPARE already has, and the button
 says "(already in COMPARE)".
 
+    MyWheelBar.jsx           COMPARE "My wheel" bar: one saved build in this browser (wheel-physics-core/js/my-wheel.js)
 The yardstick card on COMPARE has rider presets (Youth racer 45 kg, Trail
 82, DH 100, E-bike 110: rough rider + bike weights, not survey data). They
 set the Rider+bike slider, whose range now starts at 40 kg so the youth
@@ -380,6 +381,18 @@ controls), so either section's controls move both.
 Both draw from `wheel-physics-core`'s per-spoke output
 (`calc(..., { spokes: true })`, `spokeTensions`, `firstSlackCombined`): each
 spoke's tension change per unit point load from Ford's discrete-spoke Mode
+
+## My wheel
+
+The COMPARE tab's "My wheel" bar lets a reader save one build (a hub from
+the list, wheel size, tension and spoke count) in their own browser
+(`localStorage`, key `pmr-my-wheel`). It opens again on their next visit,
+and the 148 vs 157 widget reads the same record through the PMR page that
+frames it, so a wheel saved in either tool shows in both. A link that
+carries a build always opens as sent; the bar then offers "Show my wheel".
+"Forget" removes it. The record format is
+`wheel-physics-core/js/my-wheel.js`. Only listed hubs can be saved, and
+nothing is sent to any server.
 Matrix, checked against his bike-wheel-calc in that repo's
 `validation/spokes/`. `spokeModel()` in `physics.js` runs it for one build and
 maps the engine's tighter/looser sides back to the real drive side when
