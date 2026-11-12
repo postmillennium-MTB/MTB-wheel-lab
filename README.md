@@ -274,6 +274,30 @@ set the Rider+bike slider, whose range now starts at 40 kg so the youth
 preset fits. No strength or stiffness figure depends on rider weight; the
 slider moves the yardstick, the SIMULATION ride and the TORSION rider load.
 
+### Push the wheel, spokes at the dot
+
+PUSH THE WHEEL (COMPARE, `PushWheel.jsx`) puts both builds side by side
+under the same sideways push at the tire, toward the non-drive side, at the
+spoke point that slackens a spoke soonest (the spoke ring's "Side → NDS").
+Hold the button (or drag the slider) and the push grows; each spoke fades
+as it loses tension and turns dashed at zero. The first wheel to lose a
+spoke is marked at that load, which is its lateral strength `F_lat`, and
+freezes there, because Ford's linear model ends at first slack; the other
+keeps going until it too loses one. Under each wheel, "rim moved" is the
+push divided by `K_lat`: stiffness, shown as a number, so strength (the ✕)
+and stiffness (the mm) sit next to each other as two different things.
+Nothing in the drawing is deflected or exaggerated.
+
+The LOAD ENVELOPE (DEEP DIVE) draws the same face-on ring for the chosen
+hub at the dot: every spoke under that down + sideways load, from the same
+superposed responses the envelope's edge is built from. Outside the shape
+the ring stops at first slack, scaled back along the same direction.
+
+Both use wheel-physics-core's `spokeTensions` and `firstSlackCombined`,
+already checked spoke by spoke against bike-wheel-calc, including combined
+down + sideways loads (`validation/spokes/`, "combined"); no new engine
+output.
+
 ### Colors
 
 A hub has one color in a theme, used for everything that belongs to that hub,
@@ -308,6 +332,7 @@ src/
     WhatIfBar.jsx            pinned build controls + strength/stiffness change chips
     CompareThese.jsx         "Compare these two" button for the hub tables
     MyWheelBar.jsx           COMPARE "My wheel" bar: one saved build in this browser (wheel-physics-core/js/my-wheel.js)
+    PushWheel.jsx            COMPARE's push-the-wheel (both wheels, one sideways push) + shared face-on ring
     ShareButton.jsx          header "Share link" button (icon only): share sheet, or copies the build link
     CopyResultButton.jsx     header "Copy result" button (icon only): the build as plain text, wording from wheel-physics-core/js/share-text.js
     MetricBar.jsx            paired 148/157 comparison bar
