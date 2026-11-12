@@ -315,6 +315,14 @@ says so, which is why a hit can hold there and still slacken a spoke on the
 envelope. The old ride's state and helpers (`simulateRideLoad`, etc.) are
 left in place, unused, for now.
 
+### Phone tab bar
+
+Under 600 px wide the eight tabs sit in one row that scrolls sideways (no
+scrollbar, a faded right edge as the hint) instead of wrapping to three
+rows, which took most of a phone's first screen. The chosen tab scrolls into
+the middle of the row, including when a link opens straight onto a tab.
+Wider screens are unchanged.
+
 ### Colors
 
 A hub has one color in a theme, used for everything that belongs to that hub,
