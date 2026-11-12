@@ -123,8 +123,13 @@ kgf for 148, 26.4 → 46.3 for 157) and lateral stiffness (K_lat 59.4 → 107.5
 and 77.0 → 133.5 N/mm), and moved the wheel from 61–67% of its buckling
 tension to 28–33%. Radial strength (F_rad) fell slightly, 212 → 197 and
 220 → 210 kgf. With the sourced ERD of 605 mm for 29" (below) the default
-build reads F_lat 38.3 and 45.8 kgf, K_lat 104.6 and 130.0 N/mm, F_rad 196
-and 209 kgf, at 29–33% of buckling tension. The SIMULATION tab's
+build of that time (28 spokes) reads F_lat 38.3 and 45.8 kgf, K_lat 104.6
+and 130.0 N/mm, F_rad 196 and 209 kgf, at 29–33% of buckling tension.
+
+Since November 12, 2026 the default build is the one the 148 vs 157 widget
+opens on, so a reader moving between the two tools sees the same wheel: the
+CK Centerlock pair, 29", 32 spokes, 120 kgf drive-side tension. It reads
+F_lat 42.5 and 50.9 kgf, K_lat 119.9 and 149.3 N/mm, F_rad 211 and 226 kgf. The SIMULATION tab's
 illustrative ride loads were rescaled with the rim change (see
 `RIDE_LOAD_SCALE` in `src/data.js`) so they keep the same relation to the
 default build's lateral strength.
@@ -263,7 +268,6 @@ holds one 148 and one 157 hub, so the newest pick of each standard is used;
 a standard with no pick keeps the hub COMPARE already has, and the button
 says "(already in COMPARE)".
 
-    MyWheelBar.jsx           COMPARE "My wheel" bar: one saved build in this browser (wheel-physics-core/js/my-wheel.js)
 The yardstick card on COMPARE has rider presets (Youth racer 45 kg, Trail
 82, DH 100, E-bike 110: rough rider + bike weights, not survey data). They
 set the Rider+bike slider, whose range now starts at 40 kg so the youth
@@ -303,6 +307,7 @@ src/
     Yardstick.jsx            COMPARE's strength-vs-rider-weight card
     WhatIfBar.jsx            pinned build controls + strength/stiffness change chips
     CompareThese.jsx         "Compare these two" button for the hub tables
+    MyWheelBar.jsx           COMPARE "My wheel" bar: one saved build in this browser (wheel-physics-core/js/my-wheel.js)
     ShareButton.jsx          header "Share link" button (icon only): share sheet, or copies the build link
     CopyResultButton.jsx     header "Copy result" button (icon only): the build as plain text, wording from wheel-physics-core/js/share-text.js
     MetricBar.jsx            paired 148/157 comparison bar
