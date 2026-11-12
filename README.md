@@ -254,6 +254,21 @@ opposite directions (stiffer, but weaker), which is the point of keeping
 them apart. Motion is off under prefers-reduced-motion. The numbers are the
 same engine outputs the rest of the tab shows.
 
+### Compare these two, rider presets
+
+TENSION BALANCE and HUB SPECS turn a pick into COMPARE's two hubs
+(`CompareThese.jsx`). On TENSION BALANCE the highlighted rows are the picks;
+on HUB SPECS a tap picks a row (ticked and barred, not color alone). COMPARE
+holds one 148 and one 157 hub, so the newest pick of each standard is used;
+a standard with no pick keeps the hub COMPARE already has, and the button
+says "(already in COMPARE)".
+
+The yardstick card on COMPARE has rider presets (Youth racer 45 kg, Trail
+82, DH 100, E-bike 110: rough rider + bike weights, not survey data). They
+set the Rider+bike slider, whose range now starts at 40 kg so the youth
+preset fits. No strength or stiffness figure depends on rider weight; the
+slider moves the yardstick, the SIMULATION ride and the TORSION rider load.
+
 ### Colors
 
 A hub has one color in a theme, used for everything that belongs to that hub,
@@ -286,6 +301,7 @@ src/
     Tour.jsx                 the five-stop Start here tour
     Yardstick.jsx            COMPARE's strength-vs-rider-weight card
     WhatIfBar.jsx            pinned build controls + strength/stiffness change chips
+    CompareThese.jsx         "Compare these two" button for the hub tables
     ShareButton.jsx          header share button (icon only): share sheet, or copies the build link
     MetricBar.jsx            paired 148/157 comparison bar
     RideTooltipContent.jsx  custom Recharts tooltip
