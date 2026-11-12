@@ -231,6 +231,29 @@ choice), names it and says what to look at; the reader moves with Back and Next.
 of COMPARE until started or dismissed (remembered in the browser), and a
 link in the footer starts the tour at any time.
 
+### What-if bar
+
+`WhatIfBar.jsx` pins a slim copy of the build controls to the top of the
+screen once the main control panel has scrolled out of view, so a reader
+deep in a chart can change the build and watch that chart answer without
+scrolling back up (on a phone the spoke ring sits about 3,000 px below the
+tension slider). On a phone it is one summary row that opens with Adjust;
+on wider screens the hubs, spokes and tension sit in the bar, with the rim
+one tap away. It drives the same state as the main panel. On SYMMETRY,
+TENSION BALANCE and HUB SPECS, which don't use the two chosen hubs, it shows
+only spokes, rim and tension.
+
+After any change to the build, a "That change" strip lists how each hub's
+lateral strength (kgf, load at first spoke slack) and lateral stiffness
+(N/mm) moved, as two separately labelled chips, for about 3.5 s. A drag
+through several slider steps is measured from where the drag started. The
+chips sit in the pinned bar, or just under the main panel while that is on
+screen. They are drawn in the text color with a sign and the hub named in
+words, so they add no color pairs. Lowering tension shows the two moving in
+opposite directions (stiffer, but weaker), which is the point of keeping
+them apart. Motion is off under prefers-reduced-motion. The numbers are the
+same engine outputs the rest of the tab shows.
+
 ### Colors
 
 A hub has one color in a theme, used for everything that belongs to that hub,
@@ -262,6 +285,7 @@ src/
     Slider.jsx               labeled range input, with optional marks under the track
     Tour.jsx                 the five-stop Start here tour
     Yardstick.jsx            COMPARE's strength-vs-rider-weight card
+    WhatIfBar.jsx            pinned build controls + strength/stiffness change chips
     ShareButton.jsx          header share button (icon only): share sheet, or copies the build link
     MetricBar.jsx            paired 148/157 comparison bar
     RideTooltipContent.jsx  custom Recharts tooltip
